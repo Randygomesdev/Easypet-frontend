@@ -1,17 +1,35 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, Users, Wrench, Package, CalendarDays, Stethoscope, X, LogOut } from 'lucide-react'
+import {
+  LayoutDashboard, ClipboardList, Users, Wrench, Package,
+  CalendarDays, Stethoscope, X, LogOut,
+  Building2, PawPrint, Store,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import LogoEasypet from '../../assets/LogoEasypet.svg'
 import { useAuth } from '../../contexts/AuthContext'
+import type { UserRole } from '../../types/auth.types'
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard',     path: '/partner/dashboard' },
-  { icon: ClipboardList,   label: 'Cadastro',      path: '/partner/cadastro' },
-  { icon: Users,           label: 'Colaboradores', path: '/partner/colaboradores' },
-  { icon: Wrench,          label: 'Serviços',      path: '/partner/servicos' },
-  { icon: Package,         label: 'Pacotes',       path: '/partner/pacotes' },
-  { icon: CalendarDays,    label: 'Agendamentos',  path: '/partner/agendamentos' },
-  { icon: Stethoscope,     label: 'Atendimento',   path: '/partner/atendimento' },
-]
+type NavItem = { icon: LucideIcon; label: string; path: string }
+
+const NAV_ITEMS: Record<UserRole, NavItem[]> = {
+  PARTNER: [
+    { icon: LayoutDashboard, label: 'Dashboard',     path: '/partner/dashboard' },
+    { icon: ClipboardList,   label: 'Cadastro',      path: '/partner/cadastro' },
+    { icon: Users,           label: 'Colaboradores', path: '/partner/colaboradores' },
+    { icon: Wrench,          label: 'Serviços',      path: '/partner/servicos' },
+    { icon: Package,         label: 'Pacotes',       path: '/partner/pacotes' },
+    { icon: CalendarDays,    label: 'Agendamentos',  path: '/partner/agendamentos' },
+    { icon: Stethoscope,     label: 'Atendimento',   path: '/partner/atendimento' },
+  ],
+  ADMIN: [
+    { icon: Building2,       label: 'Parceiros',     path: '/admin/parceiros' },
+    { icon: Users,           label: 'Clientes',      path: '/admin/clientes' },
+  ],
+  CUSTOMER: [
+    { icon: Store,           label: 'Início',        path: '/app/home' },
+    { icon: PawPrint,        label: 'Meus Pets',     path: '/app/pets' },
+  ],
+}
 
 type Props = {
   open: boolean
@@ -19,9 +37,11 @@ type Props = {
 }
 
 export default function Sidebar({ open, onClose }: Props) {
-  const { pathname }   = useLocation()
-  const { logout }     = useAuth()
-  const navigate       = useNavigate()
+  const { pathname }       = useLocation()
+  const { logout, user }   = useAuth()
+  const navigate           = useNavigate()
+
+  const navItems = NAV_ITEMS[user?.role ?? 'CUSTOMER']
 
   function handleLogout() {
     logout()
