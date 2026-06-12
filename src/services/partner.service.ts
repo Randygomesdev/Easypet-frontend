@@ -84,6 +84,9 @@ export const partnerService = {
   listAll: (params: { name?: string; page: number; size: number }): Promise<Page<PartnerResponse>> =>
     api.get('/partners', { params }).then(r => r.data),
 
+  getById: (id: string): Promise<PartnerResponse> =>
+    api.get(`/partners/${id}`).then(r => r.data),
+
   updateById: (id: string, data: Partial<PartnerPayload> & { active?: boolean }): Promise<PartnerResponse> =>
     api.put(`/partners/${id}`, data).then(r => r.data),
 

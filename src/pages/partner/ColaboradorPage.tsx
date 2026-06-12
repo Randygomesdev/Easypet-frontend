@@ -98,7 +98,9 @@ const DEFAULT_ESCALA: DiaEscala[] = SCHEDULE_CONFIG.map(c => ({
 ════════════════════════════════════════ */
 type Tab = 'dados' | 'escala' | 'afastamentos'
 
-export default function ColaboradorPage() {
+type Props = { adminPartnerId?: string }
+
+export default function ColaboradorPage({ adminPartnerId }: Props = {}) {
   const { staffId } = useParams<{ staffId: string }>()
   const navigate    = useNavigate()
   const isNew       = !staffId
@@ -132,9 +134,13 @@ export default function ColaboradorPage() {
   const [showModal, setShowModal]   = useState(false)
 
   useEffect(() => {
-    partnerService.getMe()
-      .then(async p => {
-        setPartnerId(p.id)
+    const resolveId = adminPartnerId
+      ? Promise.resolve(adminPartnerId)
+      : partnerService.getMe().then(p => p.id)
+
+    resolveId
+      .then(async pid => {
+        setPartnerId(pid)
         if (!isNew && staffId) {
           const [s, sched, abs] = await Promise.all([
             staffService.getById(staffId),
@@ -174,7 +180,10 @@ export default function ColaboradorPage() {
       }
       if (isNew && partnerId) {
         const created = await staffService.create(partnerId, payload)
-        navigate(`/partner/colaboradores/${created.id}`, { replace: true })
+        const dest = adminPartnerId
+          ? `/admin/parceiros/${adminPartnerId}/colaboradores/${created.id}`
+          : `/partner/colaboradores/${created.id}`
+        navigate(dest, { replace: true })
       } else if (staffId) {
         const updated = await staffService.update(staffId, payload)
         setStaff(updated)

@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useParams } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './routes/ProtectedRoute'
 import RoleRouter from './routes/RoleRouter'
@@ -17,7 +17,13 @@ import PacotesPage        from './pages/partner/PacotesPage'
 import AgendamentosPage   from './pages/partner/AgendamentosPage'
 import AtendimentoPage    from './pages/partner/AtendimentoPage'
 import PlaceholderPage    from './pages/partner/PlaceholderPage'
-import ParceirosPage      from './pages/admin/ParceirosPage'
+import ParceirosPage       from './pages/admin/ParceirosPage'
+import ParceiroDetailPage from './pages/admin/ParceiroDetailPage'
+
+function AdminColaboradorWrapper() {
+  const { partnerId } = useParams<{ partnerId: string }>()
+  return <ColaboradorPage adminPartnerId={partnerId ?? ''} />
+}
 
 const router = createBrowserRouter([
   // Rotas públicas
@@ -57,8 +63,11 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { index: true,       element: <Navigate to="parceiros" replace /> },
-      { path: 'parceiros', element: <ParceirosPage /> },
+      { index: true,           element: <Navigate to="parceiros" replace /> },
+      { path: 'parceiros',     element: <ParceirosPage /> },
+      { path: 'parceiros/:id', element: <ParceiroDetailPage /> },
+      { path: 'parceiros/:partnerId/colaboradores/novo',      element: <AdminColaboradorWrapper /> },
+      { path: 'parceiros/:partnerId/colaboradores/:staffId',  element: <AdminColaboradorWrapper /> },
     ],
   },
 
