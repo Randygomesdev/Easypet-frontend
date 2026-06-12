@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './routes/ProtectedRoute'
 import RoleRouter from './routes/RoleRouter'
@@ -17,6 +17,7 @@ import PacotesPage        from './pages/partner/PacotesPage'
 import AgendamentosPage   from './pages/partner/AgendamentosPage'
 import AtendimentoPage    from './pages/partner/AtendimentoPage'
 import PlaceholderPage    from './pages/partner/PlaceholderPage'
+import ParceirosPage      from './pages/admin/ParceirosPage'
 
 const router = createBrowserRouter([
   // Rotas públicas
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
+      { index: true,           element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard',     element: <DashboardPage /> },
       { path: 'cadastro',      element: <CadastroPage /> },
       { path: 'colaboradores',           element: <ColaboradoresPage /> },
@@ -55,7 +57,8 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { path: 'dashboard', element: <PlaceholderPage title="Admin Dashboard" /> },
+      { index: true,       element: <Navigate to="parceiros" replace /> },
+      { path: 'parceiros', element: <ParceirosPage /> },
     ],
   },
 
@@ -68,6 +71,7 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
+      { index: true,  element: <Navigate to="home" replace /> },
       { path: 'home', element: <PlaceholderPage title="Home" /> },
     ],
   },
