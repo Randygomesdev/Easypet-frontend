@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Loader2, Search, ChevronLeft, ChevronRight,
-  Pencil, Trash2, X,
+  Pencil, Trash2,
 } from 'lucide-react'
-import { partnerService, buildPayload, type PartnerResponse } from '../../services/partner.service'
+import { partnerService, type PartnerResponse } from '../../services/partner.service'
 
 const PAGE_SIZE = 10
 
 export default function ParceirosPage() {
+  const navigate = useNavigate()
+
   const [partners,    setPartners]    = useState<PartnerResponse[]>([])
   const [loading,     setLoading]     = useState(true)
   const [search,      setSearch]      = useState('')
@@ -15,14 +18,6 @@ export default function ParceirosPage() {
   const [page,        setPage]        = useState(0)
   const [totalPages,  setTotalPages]  = useState(0)
   const [totalItems,  setTotalItems]  = useState(0)
-
-  // modal edição
-  const [editTarget,  setEditTarget]  = useState<PartnerResponse | null>(null)
-  const [editName,    setEditName]    = useState('')
-  const [editEmail,   setEditEmail]   = useState('')
-  const [editPhone,   setEditPhone]   = useState('')
-  const [editActive,  setEditActive]  = useState(true)
-  const [saving,      setSaving]      = useState(false)
 
   // modal exclusão
   const [delTarget,   setDelTarget]   = useState<PartnerResponse | null>(null)
@@ -49,26 +44,6 @@ export default function ParceirosPage() {
   }, [debSearch, page])
 
   useEffect(() => { load() }, [load])
-
-  function openEdit(p: PartnerResponse) {
-    setEditTarget(p)
-    setEditName(p.name)
-    setEditEmail(p.email ?? '')
-    setEditPhone(p.contactPhone ?? '')
-    setEditActive(p.active)
-  }
-
-  async function handleSaveEdit() {
-    if (!editTarget) return
-    setSaving(true)
-    try {
-      const payload = buildPayload(editTarget, { name: editName, email: editEmail, contactPhone: editPhone })
-      await partnerService.updateById(editTarget.id, { ...payload, active: editActive })
-      setEditTarget(null)
-      load()
-    } catch { /* erros de rede são silenciosos — o form permanece aberto */ }
-    finally { setSaving(false) }
-  }
 
   async function handleDelete() {
     if (!delTarget) return
@@ -170,7 +145,7 @@ export default function ParceirosPage() {
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => openEdit(p)}
+                        onClick={() => navigate(`/admin/parceiros/${p.id}`)}
                         title="Editar"
                         className="p-1.5 rounded-lg border border-(--color-border) text-(--color-text-muted)
                                    hover:text-(--color-primary-700) hover:border-(--color-primary-700)/50 transition-colors">
@@ -217,87 +192,6 @@ export default function ParceirosPage() {
           </div>
         )}
       </div>
-
-      {/* Modal — Edição */}
-      {editTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-(--color-surface) rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
-
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-(--color-text-heading)">Editar Parceiro</h2>
-              <button onClick={() => setEditTarget(null)}
-                className="p-1 text-(--color-text-muted) hover:text-(--color-text-heading) transition-colors">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-(--color-text-muted) mb-1">Nome</label>
-                <input
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  className="w-full text-sm rounded-xl border border-(--color-border) bg-(--color-bg)
-                             px-3 py-2.5 text-(--color-text-body) focus:outline-none focus:border-(--color-primary-700)"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-(--color-text-muted) mb-1">E-mail</label>
-                <input
-                  type="email"
-                  value={editEmail}
-                  onChange={e => setEditEmail(e.target.value)}
-                  className="w-full text-sm rounded-xl border border-(--color-border) bg-(--color-bg)
-                             px-3 py-2.5 text-(--color-text-body) focus:outline-none focus:border-(--color-primary-700)"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-(--color-text-muted) mb-1">Telefone de contato</label>
-                <input
-                  value={editPhone}
-                  onChange={e => setEditPhone(e.target.value)}
-                  className="w-full text-sm rounded-xl border border-(--color-border) bg-(--color-bg)
-                             px-3 py-2.5 text-(--color-text-body) focus:outline-none focus:border-(--color-primary-700)"
-                />
-              </div>
-
-              {/* Toggle ativo/inativo */}
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  onClick={() => setEditActive(v => !v)}
-                  className={`relative w-10 h-6 rounded-full transition-colors ${
-                    editActive ? 'bg-(--color-primary-700)' : 'bg-(--color-border)'
-                  }`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${
-                    editActive ? 'left-5' : 'left-1'
-                  }`} />
-                </button>
-                <span className="text-sm font-medium text-(--color-text-body)">
-                  {editActive ? 'Ativo' : 'Inativo'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setEditTarget(null)}
-                className="px-4 py-2 text-sm font-semibold rounded-xl border border-(--color-border)
-                           text-(--color-text-muted) hover:border-(--color-primary-700)/50 transition-colors">
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={saving}
-                className="px-4 py-2 text-sm font-semibold rounded-xl bg-(--color-primary-700) text-white
-                           hover:opacity-90 disabled:opacity-60 transition-opacity flex items-center gap-2">
-                {saving && <Loader2 size={14} className="animate-spin" />}
-                Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal — Confirmação de exclusão */}
       {delTarget && (
