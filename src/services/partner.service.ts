@@ -1,5 +1,11 @@
 import { api } from '../lib/api'
 
+export interface Page<T> {
+  content:       T[]
+  totalPages:    number
+  totalElements: number
+}
+
 export interface BusinessHour {
   dayOfWeek:        string
   businessStartHour: string
@@ -73,6 +79,16 @@ export const partnerService = {
   /** Adiciona um único serviço ao parceiro */
   addService: (partnerId: string, data: ServiceOfferRequest): Promise<PartnerResponse> =>
     api.post(`/partners/${partnerId}/services`, data).then(r => r.data),
+
+  // ── Admin ──────────────────────────────────────────────────
+  listAll: (params: { name?: string; page: number; size: number }): Promise<Page<PartnerResponse>> =>
+    api.get('/partners', { params }).then(r => r.data),
+
+  updateById: (id: string, data: Partial<PartnerPayload> & { active?: boolean }): Promise<PartnerResponse> =>
+    api.put(`/partners/${id}`, data).then(r => r.data),
+
+  deleteById: (id: string): Promise<void> =>
+    api.delete(`/partners/${id}`).then(() => undefined),
 }
 
 /** Monta o PartnerPayload completo a partir de um PartnerResponse (para updates parciais) */

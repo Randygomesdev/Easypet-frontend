@@ -17,6 +17,7 @@ import PacotesPage        from './pages/partner/PacotesPage'
 import AgendamentosPage   from './pages/partner/AgendamentosPage'
 import AtendimentoPage    from './pages/partner/AtendimentoPage'
 import PlaceholderPage    from './pages/partner/PlaceholderPage'
+import ParceirosPage      from './pages/admin/ParceirosPage'
 
 const router = createBrowserRouter([
   // Rotas públicas
@@ -55,7 +56,7 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { path: 'dashboard', element: <PlaceholderPage title="Admin Dashboard" /> },
+      { path: 'parceiros', element: <ParceirosPage /> },
     ],
   },
 
