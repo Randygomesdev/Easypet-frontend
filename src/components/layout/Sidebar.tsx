@@ -88,7 +88,7 @@ export default function Sidebar({ open, onClose }: Props) {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto">
           {navItems.map(({ icon: Icon, label, path }) => {
-            const isActive = pathname === path
+            const isActive = pathname === path || pathname.startsWith(path + '/')
             return (
               <Link
                 key={path}

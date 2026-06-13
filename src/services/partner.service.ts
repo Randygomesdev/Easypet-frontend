@@ -81,7 +81,7 @@ export const partnerService = {
     api.post(`/partners/${partnerId}/services`, data).then(r => r.data),
 
   // ── Admin ──────────────────────────────────────────────────
-  listAll: (params: { name?: string; page: number; size: number }): Promise<Page<PartnerResponse>> =>
+  listAll: (params: { name?: string; category?: string; page: number; size: number }): Promise<Page<PartnerResponse>> =>
     api.get('/partners', { params }).then(r => r.data),
 
   getById: (id: string): Promise<PartnerResponse> =>

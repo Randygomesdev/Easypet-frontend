@@ -17,8 +17,11 @@ import PacotesPage        from './pages/partner/PacotesPage'
 import AgendamentosPage   from './pages/partner/AgendamentosPage'
 import AtendimentoPage    from './pages/partner/AtendimentoPage'
 import PlaceholderPage    from './pages/partner/PlaceholderPage'
+import HomePage           from './pages/app/HomePage'
+import PetsPage           from './pages/app/PetsPage'
 import ParceirosPage       from './pages/admin/ParceirosPage'
 import ParceiroDetailPage from './pages/admin/ParceiroDetailPage'
+import ClientesPage        from './pages/admin/ClientesPage'
 
 function AdminColaboradorWrapper() {
   const { partnerId } = useParams<{ partnerId: string }>()
@@ -68,6 +71,7 @@ const router = createBrowserRouter([
       { path: 'parceiros/:id', element: <ParceiroDetailPage /> },
       { path: 'parceiros/:partnerId/colaboradores/novo',      element: <AdminColaboradorWrapper /> },
       { path: 'parceiros/:partnerId/colaboradores/:staffId',  element: <AdminColaboradorWrapper /> },
+      { path: 'clientes',  element: <ClientesPage /> },
     ],
   },
 
@@ -81,7 +85,8 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true,  element: <Navigate to="home" replace /> },
-      { path: 'home', element: <PlaceholderPage title="Home" /> },
+      { path: 'home', element: <HomePage /> },
+      { path: 'pets', element: <PetsPage /> },
     ],
   },
 
