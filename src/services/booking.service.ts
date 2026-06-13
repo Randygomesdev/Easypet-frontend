@@ -104,7 +104,7 @@ export interface BookingRequest {
   type:               BookingType
   notes?:             string
   price?:             number
-  paymentMethod?:     string
+  paymentMethod?:     'CARD' | 'PIX' | 'PACKAGE_CREDIT'
   staffId?:           string
   requestFitting?:    boolean
   customerPackageId?: string

@@ -24,7 +24,7 @@ export interface PackageTemplateResponse {
 
 export type PackageResponse = PackageTemplateResponse
 
-export type PaymentMethod = 'CREDIT_CARD' | 'PIX'
+export type PaymentMethod = 'CARD' | 'PIX'
 
 export interface CustomerPackageResponse {
   id:               string
