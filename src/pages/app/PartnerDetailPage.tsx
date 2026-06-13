@@ -1097,7 +1097,7 @@ export default function PartnerDetailPage() {
           service={selectedService}
           partnerId={id}
           onClose={() => setSelectedService(null)}
-          onSuccess={() => setSelectedService(null)}
+          onSuccess={() => { setSelectedService(null); navigate('/app/agendamentos') }}
         />
       )}
       {selectedPackage && (

@@ -26,8 +26,9 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { icon: Users,           label: 'Clientes',      path: '/admin/clientes' },
   ],
   CUSTOMER: [
-    { icon: Store,           label: 'Início',        path: '/app/home' },
-    { icon: PawPrint,        label: 'Meus Pets',     path: '/app/pets' },
+    { icon: Store,           label: 'Início',           path: '/app/home'          },
+    { icon: PawPrint,        label: 'Meus Pets',        path: '/app/pets'          },
+    { icon: CalendarDays,    label: 'Agendamentos',     path: '/app/agendamentos'  },
   ],
 }
 
