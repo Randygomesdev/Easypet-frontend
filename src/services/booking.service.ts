@@ -80,7 +80,45 @@ export interface ClientStatsResponse {
 
 // ── Service ────────────────────────────────────────────────────────────────
 
+export interface StaffSlot {
+  id:        string
+  name:      string
+  photoUrl?: string
+}
+
+export interface AvailabilitySlot {
+  time:                 string   // "14:00"
+  available:            boolean
+  staff?:               StaffSlot[]
+  reason?:              string
+  allowFittingRequest?: boolean
+}
+
+export interface BookingRequest {
+  petId:              string
+  partnerId:          string
+  serviceId?:         string
+  bookingDate?:       string   // "YYYY-MM-DDTHH:mm:ss"
+  checkIn?:           string
+  checkOut?:          string
+  type:               BookingType
+  notes?:             string
+  price?:             number
+  paymentMethod?:     string
+  staffId?:           string
+  requestFitting?:    boolean
+  customerPackageId?: string
+}
+
 export const bookingService = {
+  create: (data: BookingRequest): Promise<BookingResponse> =>
+    api.post('/bookings', data).then(r => r.data),
+
+  getAvailability: (partnerId: string, date: string, serviceId?: string): Promise<AvailabilitySlot[]> =>
+    api.get('/bookings/availability', {
+      params: { partnerId, date, ...(serviceId ? { serviceId } : {}) },
+    }).then(r => r.data),
+
   getByPartner: (partnerId: string, params: BookingQueryParams = {}): Promise<PageResponse<BookingResponse>> => {
     const q = new URLSearchParams()
     if (params.date)      q.set('date',      params.date)

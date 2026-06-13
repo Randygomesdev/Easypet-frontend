@@ -59,11 +59,38 @@ export interface ServiceOffer {
   active?:         boolean
 }
 
+export type PartnerCategory = 'CLINIC' | 'PETSHOP' | 'GROOMER' | 'TRAINER' | 'SITTER'
+export const CATEGORY_LABEL: Record<PartnerCategory, string> = {
+  CLINIC:  'Clínica Veterinária',
+  PETSHOP: 'Petshop',
+  GROOMER: 'Banho & Tosa',
+  TRAINER: 'Adestramento',
+  SITTER:  'Hospedagem',
+}
+
+export interface ReviewRequest {
+  rating:      number
+  comment?:    string
+  authorName:  string
+}
+
+export interface ReviewResponse {
+  id:          string
+  rating:      number
+  comment?:    string
+  authorName:  string
+  createdAt:   string
+}
+
 export interface PartnerResponse extends PartnerPayload {
-  id:       string
-  rating:   number
-  active:   boolean
-  services: ServiceOffer[]
+  id:               string
+  rating:           number
+  active:           boolean
+  services:         ServiceOffer[]
+  categories?:      PartnerCategory[]
+  activeModules?:   string[]
+  galleryPictures?: string[]
+  boardingCapacity?: number
 }
 
 export const partnerService = {
@@ -81,7 +108,7 @@ export const partnerService = {
     api.post(`/partners/${partnerId}/services`, data).then(r => r.data),
 
   // ── Admin ──────────────────────────────────────────────────
-  listAll: (params: { name?: string; page: number; size: number }): Promise<Page<PartnerResponse>> =>
+  listAll: (params: { name?: string; category?: string; page: number; size: number }): Promise<Page<PartnerResponse>> =>
     api.get('/partners', { params }).then(r => r.data),
 
   getById: (id: string): Promise<PartnerResponse> =>
@@ -92,6 +119,13 @@ export const partnerService = {
 
   deleteById: (id: string): Promise<void> =>
     api.delete(`/partners/${id}`).then(() => undefined),
+
+  // Reviews
+  getReviews: (partnerId: string): Promise<ReviewResponse[]> =>
+    api.get(`/partners/${partnerId}/reviews`).then(r => r.data),
+
+  submitReview: (partnerId: string, data: ReviewRequest): Promise<ReviewResponse> =>
+    api.post(`/partners/${partnerId}/reviews`, data).then(r => r.data),
 }
 
 /** Monta o PartnerPayload completo a partir de um PartnerResponse (para updates parciais) */
