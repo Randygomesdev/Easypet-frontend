@@ -19,6 +19,9 @@ import AtendimentoPage    from './pages/partner/AtendimentoPage'
 import PlaceholderPage    from './pages/partner/PlaceholderPage'
 import HomePage           from './pages/app/HomePage'
 import PetsPage           from './pages/app/PetsPage'
+import PetFormPage        from './pages/app/PetFormPage'
+import PetDetailPage      from './pages/app/PetDetailPage'
+import PartnerDetailPage  from './pages/app/PartnerDetailPage'
 import ParceirosPage       from './pages/admin/ParceirosPage'
 import ParceiroDetailPage from './pages/admin/ParceiroDetailPage'
 import ClientesPage        from './pages/admin/ClientesPage'
@@ -84,9 +87,13 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { index: true,  element: <Navigate to="home" replace /> },
-      { path: 'home', element: <HomePage /> },
-      { path: 'pets', element: <PetsPage /> },
+      { index: true,                          element: <Navigate to="home" replace /> },
+      { path: 'home',                         element: <HomePage /> },
+      { path: 'parceiros/:id',                element: <PartnerDetailPage /> },
+      { path: 'pets',                         element: <PetsPage /> },
+      { path: 'pets/novo',                    element: <PetFormPage /> },
+      { path: 'pets/:id',                     element: <PetDetailPage /> },
+      { path: 'pets/:id/editar',              element: <PetFormPage /> },
     ],
   },
 
