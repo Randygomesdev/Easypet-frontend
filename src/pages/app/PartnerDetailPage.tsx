@@ -653,7 +653,7 @@ function BookingModal({
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-(--color-text-muted) uppercase tracking-wide">Forma de pagamento</p>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['PIX', 'CREDIT_CARD'] as PaymentMethod[]).map(m => (
+                    {(['PIX', 'CARD'] as PaymentMethod[]).map(m => (
                       <button key={m} onClick={() => setPaymentMethod(m)}
                               className={`py-3 text-sm rounded-xl border-2 font-medium transition-colors
                                 ${paymentMethod === m
@@ -765,8 +765,8 @@ function PurchaseModal({
   }
 
   const METHODS: { value: PaymentMethod; label: string }[] = [
-    { value: 'PIX',         label: 'PIX'               },
-    { value: 'CREDIT_CARD', label: 'Cartão de Crédito' },
+    { value: 'PIX',  label: 'PIX'               },
+    { value: 'CARD', label: 'Cartão de Crédito' },
   ]
 
   return (
