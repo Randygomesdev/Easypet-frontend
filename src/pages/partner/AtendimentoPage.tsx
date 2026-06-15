@@ -6,6 +6,7 @@ import {
   ArrowLeft, Plus, Save, Trash2, Edit2, Weight,
 } from 'lucide-react'
 import { partnerService }  from '../../services/partner.service'
+import { staffService, type StaffResponse } from '../../services/staff.service'
 import {
   petService,
   type PetResponse,
@@ -302,84 +303,107 @@ function WeightPanel({ petId, bookingId, partnerName }: { petId: string; booking
 }
 
 /* ── AppointmentPanel ────────────────────────────────────────────────────── */
-const APPT_STATUS_OPTIONS = Object.entries(APPOINTMENT_STATUS_LABEL).map(([v, l]) => ({ value: v, label: l }))
-const EMPTY_APPT: AppointmentRequest = { date: '', reason: '', status: 'SCHEDULED', clinicalNotes: '', vetName: '', weightAtTime: undefined }
+function AppointmentPanel({ petId, booking, partnerName }: {
+  petId: string; booking: BookingResponse; partnerName?: string
+}) {
+  const autoDate   = booking.bookingDate
+    ? new Date(booking.bookingDate).toISOString().slice(0, 16)
+    : new Date().toISOString().slice(0, 16)
+  const autoReason = BOOKING_TYPE_LABEL[booking.type as keyof typeof BOOKING_TYPE_LABEL] ?? booking.type
 
-function AppointmentPanel({ petId, bookingId, partnerName }: { petId: string; bookingId?: string; partnerName?: string }) {
-  const [list,    setList]    = useState<AppointmentResponse[]>([])
-  const [loading, setLoading] = useState(true)
-  const [form,    setForm]    = useState<AppointmentRequest | null>(null)
-  const [editId,  setEditId]  = useState<string | null>(null)
-  const [saving,  setSaving]  = useState(false)
+  const [staff,         setStaff]         = useState<StaffResponse[]>([])
+  const [staffLoading,  setStaffLoading]  = useState(true)
+  const [vetName,       setVetName]       = useState('')
+  const [clinicalNotes, setClinicalNotes] = useState('')
+  const [saved,         setSaved]         = useState(false)
+  const [saving,        setSaving]        = useState(false)
 
-  const load = useCallback(() => {
-    petService.listAppointments(petId).then(p => setList(Array.isArray(p) ? p : (p.content ?? []))).finally(() => setLoading(false))
-  }, [petId])
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    staffService.getByPartner(booking.partnerId)
+      .then(list => setStaff(list.filter(s => s.status === 'ACTIVE')))
+      .catch(() => {})
+      .finally(() => setStaffLoading(false))
+  }, [booking.partnerId])
 
-  function setF<K extends keyof AppointmentRequest>(k: K, v: AppointmentRequest[K]) {
-    setForm(f => f ? { ...f, [k]: v } : f)
-  }
   async function save() {
-    if (!form?.date || !form.reason) return
     setSaving(true)
     try {
-      if (editId) await petService.updateAppointment(petId, editId, form)
-      else        await petService.createAppointment(petId, { ...form, bookingId, partnerName })
-      setForm(null); setEditId(null); load()
+      await petService.createAppointment(petId, {
+        date:         autoDate,
+        reason:       autoReason,
+        status:       'COMPLETED',
+        vetName:      vetName || undefined,
+        clinicalNotes,
+        bookingId:    booking.id,
+        partnerName,
+      })
+      setSaved(true)
     } finally { setSaving(false) }
   }
 
-  if (form !== null) return (
-    <div className="space-y-3">
-      <button onClick={() => setForm(null)} className="text-sm text-(--color-text-muted) hover:underline flex items-center gap-1"><ArrowLeft size={14}/> Voltar</button>
-      <h3 className="font-semibold text-(--color-text-heading)">{editId ? 'Editar Consulta' : 'Nova Consulta'}</h3>
-      <Field label="Data e Hora *"><FInput type="datetime-local" value={form.date} onChange={v => setF('date', v)} /></Field>
-      <Field label="Motivo *"><FInput value={form.reason} onChange={v => setF('reason', v)} placeholder="Ex: Consulta de rotina" /></Field>
-      <Field label="Veterinário"><FInput value={form.vetName ?? ''} onChange={v => setF('vetName', v)} placeholder="Nome do veterinário" /></Field>
-      <Field label="Status"><FSelect value={form.status} onChange={v => setF('status', v as AppointmentStatus)} options={APPT_STATUS_OPTIONS} /></Field>
-      <Field label="Peso no momento (kg)"><FInput type="number" value={form.weightAtTime ?? ''} onChange={v => setF('weightAtTime', v ? parseFloat(v) : undefined)} placeholder="0.0" /></Field>
-      <Field label="Observações clínicas"><FTextarea value={form.clinicalNotes ?? ''} onChange={v => setF('clinicalNotes', v)} rows={4} /></Field>
-      <button onClick={save} disabled={saving}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-(--color-secondary-500) text-white text-sm disabled:opacity-50">
-        {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salvar
+  if (saved) return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <CheckCircle2 size={36} className="text-emerald-500" />
+      <p className="text-sm font-medium text-(--color-text-heading)">Registro salvo com sucesso!</p>
+      <button onClick={() => setSaved(false)} className="text-xs text-(--color-text-muted) hover:underline">
+        Registrar novamente
       </button>
     </div>
   )
 
   return (
-    <div className="space-y-3">
-      <button onClick={() => { setForm({ ...EMPTY_APPT }); setEditId(null) }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-(--color-secondary-500) text-white text-sm hover:opacity-90">
-        <Plus size={14}/> Nova Consulta
-      </button>
-      {loading ? <div className="flex justify-center py-12"><Loader2 size={22} className="animate-spin text-(--color-primary-700)"/></div>
-      : list.length === 0 ? <p className="text-center text-sm text-(--color-text-muted) py-12">Nenhuma consulta registrada.</p>
-      : (
-        <div className="space-y-2">
-          {list.map(a => (
-            <div key={a.id} className="p-3 rounded-xl bg-(--color-bg) border border-(--color-border) space-y-1">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-(--color-text-heading)">{a.reason}</p>
-                  <p className="text-xs text-(--color-text-muted)">{fmt(a.date)}{a.vetName ? ` · ${a.vetName}` : ''}</p>
-                </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0
-                  ${a.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : a.status === 'CANCELLED' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-700'}`}>
-                  {APPOINTMENT_STATUS_LABEL[a.status]}
-                </span>
-              </div>
-              {a.clinicalNotes && <p className="text-xs text-(--color-text-muted) line-clamp-2">{a.clinicalNotes}</p>}
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setForm({ date: a.date, reason: a.reason, status: a.status, clinicalNotes: a.clinicalNotes ?? '', vetName: a.vetName ?? '', weightAtTime: a.weightAtTime }); setEditId(a.id) }}
-                        className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11}/> Editar</button>
-                <button onClick={async () => { if(confirm('Remover consulta?')) { await petService.removeAppointment(petId, a.id); load() } }}
-                        className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11}/> Remover</button>
-              </div>
-            </div>
-          ))}
+    <div className="space-y-4">
+
+      {/* Campos auto-preenchidos (somente leitura) */}
+      <div className="bg-(--color-bg) border border-(--color-border) rounded-xl p-3 space-y-1.5">
+        <p className="text-[10px] font-bold text-(--color-text-muted) uppercase tracking-wider">Preenchido pelo agendamento</p>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-(--color-text-muted)">Data</span>
+          <span className="text-xs font-medium text-(--color-text-body)">
+            {new Date(booking.bookingDate ?? '').toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+          </span>
         </div>
-      )}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-(--color-text-muted)">Tipo</span>
+          <span className="text-xs font-medium text-(--color-text-body)">{autoReason}</span>
+        </div>
+      </div>
+
+      {/* Veterinário — dropdown de colaboradores */}
+      <Field label="Veterinário / Colaborador responsável">
+        {staffLoading ? (
+          <div className="flex items-center gap-2 px-3 py-2 text-xs text-(--color-text-muted)">
+            <Loader2 size={13} className="animate-spin" /> Carregando colaboradores…
+          </div>
+        ) : (
+          <select
+            value={vetName}
+            onChange={e => setVetName(e.target.value)}
+            className="w-full px-3 py-2 text-sm rounded-xl border border-(--color-border)
+                       bg-(--color-bg) text-(--color-text-body) outline-none
+                       focus:ring-2 focus:ring-(--color-primary-500)"
+          >
+            <option value="">— Selecionar colaborador —</option>
+            {staff.map(s => (
+              <option key={s.id} value={s.name}>
+                {s.name}{s.jobTitle ? ` · ${s.jobTitle}` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+
+      {/* Observações */}
+      <Field label="Observações clínicas">
+        <FTextarea value={clinicalNotes} onChange={setClinicalNotes}
+                   placeholder="Anamnese, diagnóstico, orientações…" rows={6} />
+      </Field>
+
+      <button onClick={save} disabled={saving}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
+                         bg-(--color-secondary-500) text-white text-sm disabled:opacity-50">
+        {saving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Salvar Registro
+      </button>
     </div>
   )
 }
@@ -740,9 +764,9 @@ function RecordPanel({ booking, pet, partnerName, onFinish }: RecordPanelProps) 
 
       {/* Section cards */}
       <div className="flex-1 overflow-y-auto p-5 space-y-2.5">
-        <SectionCard icon={Scale}        label="Pesagem"              color="bg-teal-100 text-teal-600"    onClick={() => setPanel('weight')} />
-        <SectionCard icon={Stethoscope}  label="Consulta / Anamnese" color="bg-blue-100 text-blue-600"    onClick={() => setPanel('appointment')} />
-        <SectionCard icon={Syringe}      label="Vacinas"              color="bg-green-100 text-green-600"  onClick={() => setPanel('vaccine')} />
+        <SectionCard icon={Scale}        label="Pesagem"                   color="bg-teal-100 text-teal-600"    onClick={() => setPanel('weight')} />
+        <SectionCard icon={Stethoscope}  label="Observações da Consulta"   color="bg-blue-100 text-blue-600"    onClick={() => setPanel('appointment')} />
+        <SectionCard icon={Syringe}      label="Vacinas"                   color="bg-green-100 text-green-600"  onClick={() => setPanel('vaccine')} />
         <SectionCard icon={FlaskConical} label="Exames"               color="bg-purple-100 text-purple-600" onClick={() => setPanel('exam')} />
         <SectionCard icon={Scissors}     label="Cirurgias / Procedimentos" color="bg-red-100 text-red-600" onClick={() => setPanel('surgery')} />
         <SectionCard icon={Pill}         label="Medicamentos / Prescrições" color="bg-orange-100 text-orange-600" onClick={() => setPanel('medication')} />
@@ -763,7 +787,7 @@ function RecordPanel({ booking, pet, partnerName, onFinish }: RecordPanelProps) 
       {pet && (
         <>
           <SlidePanel open={panel === 'weight'}      onClose={() => setPanel(null)} title="Pesagem"><WeightPanel      petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
-          <SlidePanel open={panel === 'appointment'} onClose={() => setPanel(null)} title="Consulta / Anamnese"><AppointmentPanel petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
+          <SlidePanel open={panel === 'appointment'} onClose={() => setPanel(null)} title="Observações da Consulta"><AppointmentPanel petId={pet.id} booking={booking} partnerName={partnerName} /></SlidePanel>
           <SlidePanel open={panel === 'vaccine'}     onClose={() => setPanel(null)} title="Vacinas"><VaccinePanel     petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
           <SlidePanel open={panel === 'exam'}        onClose={() => setPanel(null)} title="Exames"><ExamPanel         petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
           <SlidePanel open={panel === 'surgery'}     onClose={() => setPanel(null)} title="Cirurgias / Procedimentos"><SurgeryPanel  petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
