@@ -15,12 +15,31 @@ export interface BusinessHour {
   closed:            boolean
 }
 
+export interface ServiceSubcategoryResponse {
+  id:           string
+  name:         string
+  slug:         string
+  displayOrder: number
+}
+
+export interface ServiceCategoryResponse {
+  id:             string
+  name:           string
+  slug:           string
+  description?:   string
+  icon?:          string
+  bookingType:    string
+  displayOrder:   number
+  subcategories:  ServiceSubcategoryResponse[]
+}
+
 export interface ServiceOfferRequest {
   name:            string
   description?:    string
   price:           number
   durationMinutes: number
   billingUnit:     'HOURLY' | 'DAILY'
+  categoryId?:     string
 }
 
 export interface PartnerPayload {
@@ -56,6 +75,9 @@ export interface ServiceOffer {
   price:           number
   durationMinutes: number
   billingUnit:     'HOURLY' | 'DAILY'
+  categoryId?:     string
+  categoryName?:   string
+  bookingType?:    string
   active?:         boolean
 }
 
@@ -106,6 +128,9 @@ export const partnerService = {
   /** Adiciona um único serviço ao parceiro */
   addService: (partnerId: string, data: ServiceOfferRequest): Promise<PartnerResponse> =>
     api.post(`/partners/${partnerId}/services`, data).then(r => r.data),
+
+  listCategories: (): Promise<ServiceCategoryResponse[]> =>
+    api.get('/categories').then(r => r.data),
 
   // ── Admin ──────────────────────────────────────────────────
   listAll: (params: { name?: string; category?: string; page: number; size: number }): Promise<Page<PartnerResponse>> =>

@@ -303,13 +303,15 @@ function WeightPanel({ petId, bookingId, partnerName }: { petId: string; booking
 }
 
 /* ── AppointmentPanel ────────────────────────────────────────────────────── */
-function AppointmentPanel({ petId, booking, partnerName }: {
-  petId: string; booking: BookingResponse; partnerName?: string
+function AppointmentPanel({ petId, booking, partnerName, serviceNameMap }: {
+  petId: string; booking: BookingResponse; partnerName?: string; serviceNameMap: Record<string, string>
 }) {
   const autoDate   = booking.bookingDate
     ? new Date(booking.bookingDate).toISOString().slice(0, 16)
     : new Date().toISOString().slice(0, 16)
-  const autoReason = BOOKING_TYPE_LABEL[booking.type as keyof typeof BOOKING_TYPE_LABEL] ?? booking.type
+  const autoReason = (booking.serviceId && serviceNameMap[booking.serviceId])
+    ? serviceNameMap[booking.serviceId]
+    : BOOKING_TYPE_LABEL[booking.type as keyof typeof BOOKING_TYPE_LABEL] ?? booking.type
 
   const [staff,         setStaff]         = useState<StaffResponse[]>([])
   const [staffLoading,  setStaffLoading]  = useState(true)
@@ -726,13 +728,14 @@ function SurgeryPanel({ petId, bookingId, partnerName }: { petId: string; bookin
 type RecordPanel = 'weight' | 'appointment' | 'vaccine' | 'exam' | 'surgery' | 'medication' | null
 
 interface RecordPanelProps {
-  booking:      BookingResponse
-  pet:          PetResponse | null
-  partnerName?: string
-  onFinish:     () => void
+  booking:        BookingResponse
+  pet:            PetResponse | null
+  partnerName?:   string
+  serviceNameMap: Record<string, string>
+  onFinish:       () => void
 }
 
-function RecordPanel({ booking, pet, partnerName, onFinish }: RecordPanelProps) {
+function RecordPanel({ booking, pet, partnerName, serviceNameMap, onFinish }: RecordPanelProps) {
   const [panel,   setPanel]   = useState<RecordPanel>(null)
   const [saving,  setSaving]  = useState(false)
 
@@ -787,7 +790,7 @@ function RecordPanel({ booking, pet, partnerName, onFinish }: RecordPanelProps) 
       {pet && (
         <>
           <SlidePanel open={panel === 'weight'}      onClose={() => setPanel(null)} title="Pesagem"><WeightPanel      petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
-          <SlidePanel open={panel === 'appointment'} onClose={() => setPanel(null)} title="Observações da Consulta"><AppointmentPanel petId={pet.id} booking={booking} partnerName={partnerName} /></SlidePanel>
+          <SlidePanel open={panel === 'appointment'} onClose={() => setPanel(null)} title="Observações da Consulta"><AppointmentPanel petId={pet.id} booking={booking} partnerName={partnerName} serviceNameMap={serviceNameMap} /></SlidePanel>
           <SlidePanel open={panel === 'vaccine'}     onClose={() => setPanel(null)} title="Vacinas"><VaccinePanel     petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
           <SlidePanel open={panel === 'exam'}        onClose={() => setPanel(null)} title="Exames"><ExamPanel         petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
           <SlidePanel open={panel === 'surgery'}     onClose={() => setPanel(null)} title="Cirurgias / Procedimentos"><SurgeryPanel  petId={pet.id} bookingId={booking.id} partnerName={partnerName} /></SlidePanel>
@@ -804,19 +807,23 @@ export default function AtendimentoPage() {
   const navigate       = useNavigate()
   const initialId      = searchParams.get('bookingId')
 
-  const [queue,       setQueue]       = useState<BookingResponse[]>([])
-  const [petMap,      setPetMap]      = useState<Record<string, PetResponse>>({})
-  const [historyMap,  setHistoryMap]  = useState<Record<string, PetHistoryResponse>>({})
-  const [selected,    setSelected]    = useState<BookingResponse | null>(null)
-  const [loading,     setLoading]     = useState(true)
-  const [histLoading, setHistLoading] = useState(false)
-  const [finished,    setFinished]    = useState<Set<string>>(new Set())
-  const [partnerName, setPartnerName] = useState<string | undefined>(undefined)
+  const [queue,          setQueue]          = useState<BookingResponse[]>([])
+  const [petMap,         setPetMap]         = useState<Record<string, PetResponse>>({})
+  const [historyMap,     setHistoryMap]     = useState<Record<string, PetHistoryResponse>>({})
+  const [selected,       setSelected]       = useState<BookingResponse | null>(null)
+  const [loading,        setLoading]        = useState(true)
+  const [histLoading,    setHistLoading]    = useState(false)
+  const [finished,       setFinished]       = useState<Set<string>>(new Set())
+  const [partnerName,    setPartnerName]    = useState<string | undefined>(undefined)
+  const [serviceNameMap, setServiceNameMap] = useState<Record<string, string>>({})
 
   /* carrega fila do dia (CONFIRMED + IN_PROGRESS) */
   useEffect(() => {
     partnerService.getMe().then(async p => {
       setPartnerName(p.name)
+      const svcMap: Record<string, string> = {}
+      ;(p.services ?? []).forEach(s => { svcMap[s.id] = s.name })
+      setServiceNameMap(svcMap)
       const todayStr = today()
       try {
         const [confirmedRes, inProgressRes] = await Promise.all([
@@ -1011,7 +1018,7 @@ export default function AtendimentoPage() {
             </div>
 
             {/* Registro de atendimento */}
-            <RecordPanel booking={selected} pet={pet} partnerName={partnerName} onFinish={handleFinish} />
+            <RecordPanel booking={selected} pet={pet} partnerName={partnerName} serviceNameMap={serviceNameMap} onFinish={handleFinish} />
           </div>
         )}
       </div>

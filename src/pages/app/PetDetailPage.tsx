@@ -17,6 +17,7 @@ import {
   SPECIES_LABEL, GENDER_LABEL,
   APPOINTMENT_STATUS_LABEL, type AppointmentStatus,
   VACCINE_STATUS_LABEL,     type VaccineStatus,
+  type HistorySource,
 } from '../../services/pet.service'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -36,6 +37,17 @@ function age(birthDate: string) {
     return `${months} ${months === 1 ? 'mês' : 'meses'}`
   }
   return `${years} ${years === 1 ? 'ano' : 'anos'}`
+}
+
+// ── Source Badge ─────────────────────────────────────────────────────────────
+
+function SourceBadge({ source, partnerName }: { source?: HistorySource; partnerName?: string }) {
+  if (source !== 'PLATFORM') return null
+  return (
+    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium shrink-0">
+      {partnerName ?? 'Clínica'}
+    </span>
+  )
 }
 
 // ── Slide Panel ──────────────────────────────────────────────────────────────
@@ -231,11 +243,12 @@ function AppointmentPanel({ petId, onClose }: { petId: string; onClose: () => vo
           {list.map(a => (
             <div key={a.id} className="p-3 rounded-xl bg-(--color-bg) border border-(--color-border) space-y-1">
               <div className="flex items-start justify-between gap-2">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-(--color-text-heading)">{a.reason}</p>
                   <p className="text-xs text-(--color-text-muted)">{fmt(a.date)}{a.vetName ? ` · ${a.vetName}` : ''}</p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
+                  <SourceBadge source={a.source} partnerName={a.partnerName} />
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium
                     ${a.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                       a.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
@@ -245,14 +258,16 @@ function AppointmentPanel({ petId, onClose }: { petId: string; onClose: () => vo
                 </div>
               </div>
               {a.clinicalNotes && <p className="text-xs text-(--color-text-muted) line-clamp-2">{a.clinicalNotes}</p>}
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => startEdit(a)} className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1">
-                  <Edit2 size={11} /> Editar
-                </button>
-                <button onClick={() => remove(a.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1">
-                  <Trash2 size={11} /> Remover
-                </button>
-              </div>
+              {a.source !== 'PLATFORM' && (
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => startEdit(a)} className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1">
+                    <Edit2 size={11} /> Editar
+                  </button>
+                  <button onClick={() => remove(a.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1">
+                    <Trash2 size={11} /> Remover
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -330,25 +345,30 @@ function VaccinePanel({ petId }: { petId: string }) {
           {list.map(v => (
             <div key={v.id} className="p-3 rounded-xl bg-(--color-bg) border border-(--color-border) space-y-1">
               <div className="flex items-start justify-between gap-2">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-(--color-text-heading)">{v.name}</p>
                   <p className="text-xs text-(--color-text-muted)">
                     Aplicada: {fmt(v.applicationDate)}
                     {v.nextDoseDate ? ` · Próxima: ${fmt(v.nextDoseDate)}` : ''}
                   </p>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0
-                  ${v.status === 'UPDATED'  ? 'bg-green-100 text-green-700' :
-                    v.status === 'DUE_SOON' ? 'bg-amber-100 text-amber-700' :
-                    'bg-red-100 text-red-600'}`}>
-                  {VACCINE_STATUS_LABEL[v.status]}
-                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <SourceBadge source={v.source} partnerName={v.partnerName} />
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium
+                    ${v.status === 'UPDATED'  ? 'bg-green-100 text-green-700' :
+                      v.status === 'DUE_SOON' ? 'bg-amber-100 text-amber-700' :
+                      'bg-red-100 text-red-600'}`}>
+                    {VACCINE_STATUS_LABEL[v.status]}
+                  </span>
+                </div>
               </div>
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setForm({ name: v.name, applicationDate: v.applicationDate, nextDoseDate: v.nextDoseDate, status: v.status, vetName: v.vetName ?? '', manufacturer: v.manufacturer ?? '', lot: v.lot ?? '' }); setEditId(v.id) }}
-                        className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11} /> Editar</button>
-                <button onClick={() => remove(v.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11} /> Remover</button>
-              </div>
+              {v.source !== 'PLATFORM' && (
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => { setForm({ name: v.name, applicationDate: v.applicationDate, nextDoseDate: v.nextDoseDate, status: v.status, vetName: v.vetName ?? '', manufacturer: v.manufacturer ?? '', lot: v.lot ?? '' }); setEditId(v.id) }}
+                          className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11} /> Editar</button>
+                  <button onClick={() => remove(v.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11} /> Remover</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -430,18 +450,23 @@ function MedicationPanel({ petId }: { petId: string }) {
           {list.map(m => (
             <div key={m.id} className={`p-3 rounded-xl border ${m.active ? 'bg-orange-50 border-orange-200' : 'bg-(--color-bg) border-(--color-border)'} space-y-1`}>
               <div className="flex items-start justify-between gap-2">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-(--color-text-heading)">{m.name}</p>
                   {m.dosage && <p className="text-xs text-(--color-text-muted)">{m.dosage}{m.frequency ? ` · ${m.frequency}` : ''}</p>}
                   <p className="text-xs text-(--color-text-muted)">Início: {fmt(m.startDate)}{m.endDate ? ` · Fim: ${fmt(m.endDate)}` : ''}</p>
                 </div>
-                {m.active && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium shrink-0">Em uso</span>}
+                <div className="flex items-center gap-1 shrink-0">
+                  <SourceBadge source={m.source} partnerName={m.partnerName} />
+                  {m.active && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">Em uso</span>}
+                </div>
               </div>
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setForm({ name: m.name, dosage: m.dosage ?? '', frequency: m.frequency ?? '', startDate: m.startDate, endDate: m.endDate ?? '', active: m.active ?? true, observations: m.observations ?? '' }); setEditId(m.id) }}
-                        className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11} /> Editar</button>
-                <button onClick={() => remove(m.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11} /> Remover</button>
-              </div>
+              {m.source !== 'PLATFORM' && (
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => { setForm({ name: m.name, dosage: m.dosage ?? '', frequency: m.frequency ?? '', startDate: m.startDate, endDate: m.endDate ?? '', active: m.active ?? true, observations: m.observations ?? '' }); setEditId(m.id) }}
+                          className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11} /> Editar</button>
+                  <button onClick={() => remove(m.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11} /> Remover</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -515,14 +540,21 @@ function ExamPanel({ petId }: { petId: string }) {
         <div className="space-y-2">
           {list.map(e => (
             <div key={e.id} className="p-3 rounded-xl bg-(--color-bg) border border-(--color-border) space-y-1">
-              <p className="text-sm font-medium text-(--color-text-heading)">{e.examName}</p>
-              <p className="text-xs text-(--color-text-muted)">{fmt(e.date)}{e.laboratory ? ` · ${e.laboratory}` : ''}</p>
-              {e.resultsSummary && <p className="text-xs text-(--color-text-muted) line-clamp-2">{e.resultsSummary}</p>}
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setForm({ examName: e.examName, date: e.date, laboratory: e.laboratory ?? '', veterinarianName: e.veterinarianName ?? '', resultsSummary: e.resultsSummary ?? '', fileUrl: e.fileUrl ?? '' }); setEditId(e.id) }}
-                        className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11} /> Editar</button>
-                <button onClick={() => remove(e.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11} /> Remover</button>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-(--color-text-heading)">{e.examName}</p>
+                  <p className="text-xs text-(--color-text-muted)">{fmt(e.date)}{e.laboratory ? ` · ${e.laboratory}` : ''}</p>
+                </div>
+                <SourceBadge source={e.source} partnerName={e.partnerName} />
               </div>
+              {e.resultsSummary && <p className="text-xs text-(--color-text-muted) line-clamp-2">{e.resultsSummary}</p>}
+              {e.source !== 'PLATFORM' && (
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => { setForm({ examName: e.examName, date: e.date, laboratory: e.laboratory ?? '', veterinarianName: e.veterinarianName ?? '', resultsSummary: e.resultsSummary ?? '', fileUrl: e.fileUrl ?? '' }); setEditId(e.id) }}
+                          className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11} /> Editar</button>
+                  <button onClick={() => remove(e.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11} /> Remover</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -594,10 +626,13 @@ function WeightPanel({ petId }: { petId: string }) {
               <div className="flex items-center gap-2">
                 <Weight size={14} className="text-(--color-text-muted)" />
                 <span className="text-sm font-medium text-(--color-text-heading)">{w.weight} kg</span>
+                <SourceBadge source={w.source} partnerName={w.partnerName} />
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-(--color-text-muted)">{fmt(w.date)}</span>
-                <button onClick={() => remove(w.id)} className="text-red-400 hover:text-red-500"><Trash2 size={13} /></button>
+                {w.source !== 'PLATFORM' && (
+                  <button onClick={() => remove(w.id)} className="text-red-400 hover:text-red-500"><Trash2 size={13} /></button>
+                )}
               </div>
             </div>
           ))}
@@ -672,14 +707,21 @@ function SurgeryPanel({ petId }: { petId: string }) {
         <div className="space-y-2">
           {list.map(s => (
             <div key={s.id} className="p-3 rounded-xl bg-(--color-bg) border border-(--color-border) space-y-1">
-              <p className="text-sm font-medium text-(--color-text-heading)">{s.description}</p>
-              <p className="text-xs text-(--color-text-muted)">{fmt(s.date)}{s.vetName ? ` · ${s.vetName}` : ''}</p>
-              {s.postOperativeInstructions && <p className="text-xs text-(--color-text-muted) line-clamp-2">{s.postOperativeInstructions}</p>}
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setForm({ description: s.description, date: s.date, vetName: s.vetName ?? '', anesthesiaType: s.anesthesiaType ?? '', postOperativeInstructions: s.postOperativeInstructions ?? '' }); setEditId(s.id) }}
-                        className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11} /> Editar</button>
-                <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11} /> Remover</button>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-(--color-text-heading)">{s.description}</p>
+                  <p className="text-xs text-(--color-text-muted)">{fmt(s.date)}{s.vetName ? ` · ${s.vetName}` : ''}</p>
+                </div>
+                <SourceBadge source={s.source} partnerName={s.partnerName} />
               </div>
+              {s.postOperativeInstructions && <p className="text-xs text-(--color-text-muted) line-clamp-2">{s.postOperativeInstructions}</p>}
+              {s.source !== 'PLATFORM' && (
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => { setForm({ description: s.description, date: s.date, vetName: s.vetName ?? '', anesthesiaType: s.anesthesiaType ?? '', postOperativeInstructions: s.postOperativeInstructions ?? '' }); setEditId(s.id) }}
+                          className="text-xs text-(--color-secondary-500) hover:underline flex items-center gap-1"><Edit2 size={11} /> Editar</button>
+                  <button onClick={() => remove(s.id)} className="text-xs text-red-500 hover:underline flex items-center gap-1"><Trash2 size={11} /> Remover</button>
+                </div>
+              )}
             </div>
           ))}
         </div>

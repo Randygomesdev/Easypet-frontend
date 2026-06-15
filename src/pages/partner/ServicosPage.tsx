@@ -9,6 +9,7 @@ import {
   type PartnerResponse,
   type ServiceOffer,
   type ServiceOfferRequest,
+  type ServiceCategoryResponse,
 } from '../../services/partner.service'
 
 /* ─────────────────────────────────────────────
@@ -47,7 +48,7 @@ const BILLING_LABEL: Record<string, string> = {
 }
 
 const EMPTY_FORM: ServiceOfferRequest = {
-  name: '', description: '', price: 0, durationMinutes: 60, billingUnit: 'HOURLY',
+  name: '', description: '', price: 0, durationMinutes: 60, billingUnit: 'HOURLY', categoryId: undefined,
 }
 
 /* ─────────────────────────────────────────────
@@ -100,18 +101,20 @@ function ServiceModal({
   form,
   saving,
   formError,
+  categories,
   onChange,
   onSave,
   onClose,
 }: {
-  open:      boolean
-  editingId: string | null
-  form:      ServiceOfferRequest
-  saving:    boolean
-  formError: string
-  onChange:  <K extends keyof ServiceOfferRequest>(key: K, value: ServiceOfferRequest[K]) => void
-  onSave:    () => void
-  onClose:   () => void
+  open:       boolean
+  editingId:  string | null
+  form:       ServiceOfferRequest
+  saving:     boolean
+  formError:  string
+  categories: ServiceCategoryResponse[]
+  onChange:   <K extends keyof ServiceOfferRequest>(key: K, value: ServiceOfferRequest[K]) => void
+  onSave:     () => void
+  onClose:    () => void
 }) {
   /* fecha com Escape */
   useEffect(() => {
@@ -178,6 +181,22 @@ function ServiceModal({
                          focus:border-(--color-primary-700)/40 transition-colors"
             />
           </div>
+
+          {/* Categoria */}
+          {categories.length > 0 && (
+            <div>
+              <FieldLabel>Categoria</FieldLabel>
+              <Select
+                value={form.categoryId ?? ''}
+                onChange={e => onChange('categoryId', e.target.value || undefined)}
+              >
+                <option value="">— Sem categoria —</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
+            </div>
+          )}
 
           {/* Preço */}
           <div>
@@ -254,6 +273,7 @@ function ServiceModal({
 export default function ServicosPage() {
   const [partner,    setPartner]    = useState<PartnerResponse | null>(null)
   const [services,   setServices]   = useState<ServiceOffer[]>([])
+  const [categories, setCategories] = useState<ServiceCategoryResponse[]>([])
   const [loading,    setLoading]    = useState(true)
   const [modalOpen,  setModalOpen]  = useState(false)
   const [saving,     setSaving]     = useState(false)
@@ -263,10 +283,14 @@ export default function ServicosPage() {
   const [formError,  setFormError]  = useState('')
 
   useEffect(() => {
-    partnerService.getMe()
-      .then(p => { setPartner(p); setServices(p.services ?? []) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([
+      partnerService.getMe(),
+      partnerService.listCategories().catch(() => [] as ServiceCategoryResponse[]),
+    ]).then(([p, cats]) => {
+      setPartner(p)
+      setServices(p.services ?? [])
+      setCategories(cats)
+    }).finally(() => setLoading(false))
   }, [])
 
   function openNew() {
@@ -284,6 +308,7 @@ export default function ServicosPage() {
       price:           s.price,
       durationMinutes: s.durationMinutes,
       billingUnit:     s.billingUnit,
+      categoryId:      s.categoryId,
     })
     setFormError('')
     setModalOpen(true)
@@ -322,8 +347,8 @@ export default function ServicosPage() {
       } else {
         const updatedServices: ServiceOfferRequest[] = services.map(s =>
           s.id === editingId
-            ? { name: form.name, description: form.description, price: form.price, durationMinutes: form.durationMinutes, billingUnit: form.billingUnit }
-            : { name: s.name,    description: s.description,    price: s.price,    durationMinutes: s.durationMinutes,    billingUnit: s.billingUnit }
+            ? { name: form.name, description: form.description, price: form.price, durationMinutes: form.durationMinutes, billingUnit: form.billingUnit, categoryId: form.categoryId }
+            : { name: s.name,    description: s.description,    price: s.price,    durationMinutes: s.durationMinutes,    billingUnit: s.billingUnit,    categoryId: s.categoryId }
         )
         const updated = await partnerService.updateMe(buildPayload(partner, { services: updatedServices }))
         setPartner(updated)
@@ -344,7 +369,7 @@ export default function ServicosPage() {
     try {
       const updatedServices: ServiceOfferRequest[] = services
         .filter(s => s.id !== id)
-        .map(s => ({ name: s.name, description: s.description, price: s.price, durationMinutes: s.durationMinutes, billingUnit: s.billingUnit }))
+        .map(s => ({ name: s.name, description: s.description, price: s.price, durationMinutes: s.durationMinutes, billingUnit: s.billingUnit, categoryId: s.categoryId }))
       const updated = await partnerService.updateMe(buildPayload(partner, { services: updatedServices }))
       setPartner(updated)
       setServices(updated.services ?? [])
@@ -372,6 +397,7 @@ export default function ServicosPage() {
         form={form}
         saving={saving}
         formError={formError}
+        categories={categories}
         onChange={handleChange}
         onSave={handleSave}
         onClose={closeModal}
@@ -469,6 +495,16 @@ function ServiceCard({
           </span>
         )}
       </div>
+
+      {/* Categoria */}
+      {service.categoryName && (
+        <div className="flex">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
+                           bg-(--color-primary-700)/10 text-(--color-primary-700)">
+            {service.categoryName}
+          </span>
+        </div>
+      )}
 
       {/* Detalhes */}
       <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-(--color-text-muted)
