@@ -18,6 +18,7 @@ import {
   bookingService,
   type BookingResponse,
   BOOKING_TYPE_LABEL,
+  BOOKING_STATUS_LABEL,
 } from '../../services/booking.service'
 
 /* ─────────────────────────────────────────────
@@ -389,20 +390,22 @@ export default function AtendimentoPage() {
   const [histLoading,setHistLoading]= useState(false)
   const [finished,   setFinished]   = useState<Set<string>>(new Set())
 
-  /* carrega parceiro + fila do dia */
+  /* carrega parceiro + fila do dia (CONFIRMED + IN_PROGRESS) */
   useEffect(() => {
     partnerService.getMe().then(async p => {
       setPartnerId(p.id)
       const todayStr = today()
       try {
-        const res = await bookingService.getByPartner(p.id, {
-          date: todayStr, status: 'CONFIRMED', size: 50, sort: 'bookingDate,asc',
-        })
-        const sorted = [...res.content].sort((a, b) =>
-          (a.bookingDate ?? '').localeCompare(b.bookingDate ?? ''))
-        setQueue(sorted)
+        const [confirmedRes, inProgressRes] = await Promise.all([
+          bookingService.getByPartner(p.id, { date: todayStr, status: 'CONFIRMED',   size: 50, sort: 'bookingDate,asc' }),
+          bookingService.getByPartner(p.id, { date: todayStr, status: 'IN_PROGRESS', size: 50, sort: 'bookingDate,asc' }),
+        ])
 
-        sorted.forEach(b => {
+        const merged = [...inProgressRes.content, ...confirmedRes.content]
+          .sort((a, b) => (a.bookingDate ?? '').localeCompare(b.bookingDate ?? ''))
+        setQueue(merged)
+
+        merged.forEach(b => {
           if (b.petId && !petMap[b.petId]) {
             petService.getById(b.petId)
               .then(pet => setPetMap(prev => ({ ...prev, [pet.id]: pet })))
@@ -411,7 +414,7 @@ export default function AtendimentoPage() {
         })
 
         if (initialId) {
-          const found = sorted.find(b => b.id === initialId)
+          const found = merged.find(b => b.id === initialId)
           if (found) setSelected(found)
         }
       } catch { /* API error */ }
@@ -431,8 +434,19 @@ export default function AtendimentoPage() {
       .finally(() => setHistLoading(false))
   }, [selected, historyMap])
 
-  const handleSelect = useCallback((b: BookingResponse) => {
-    setSelected(b)
+  const handleSelect = useCallback(async (b: BookingResponse) => {
+    // Se ainda está CONFIRMED, inicia o atendimento
+    if (b.status === 'CONFIRMED') {
+      try {
+        const updated = await bookingService.updateStatus(b.id, 'IN_PROGRESS')
+        setQueue(prev => prev.map(q => q.id === updated.id ? updated : q))
+        setSelected(updated)
+      } catch {
+        setSelected(b)
+      }
+    } else {
+      setSelected(b)
+    }
     navigate(`/partner/atendimento?bookingId=${b.id}`, { replace: true })
   }, [navigate])
 
@@ -458,7 +472,12 @@ export default function AtendimentoPage() {
       <div>
         <h1 className="text-2xl lg:text-3xl font-bold text-(--color-text-heading)">Atendimento</h1>
         <p className="text-sm text-(--color-text-muted) mt-1">
-          Fila de hoje — {queue.length} confirmado{queue.length !== 1 ? 's' : ''}
+          Fila de hoje — {queue.filter(b => b.status === 'CONFIRMED').length} aguardando
+          {queue.some(b => b.status === 'IN_PROGRESS') && (
+            <span className="ml-2 text-purple-600 font-medium">
+              · {queue.filter(b => b.status === 'IN_PROGRESS').length} em atendimento
+            </span>
+          )}
         </p>
       </div>
 
@@ -471,9 +490,10 @@ export default function AtendimentoPage() {
               <p className="text-sm text-(--color-text-muted)">Nenhum atendimento confirmado hoje.</p>
             </div>
           ) : queue.map(b => {
-            const p = petMap[b.petId]
+            const p           = petMap[b.petId]
             const isSelected  = selected?.id === b.id
             const isDone      = finished.has(b.id)
+            const isInProgress = b.status === 'IN_PROGRESS'
             return (
               <button key={b.id} onClick={() => !isDone && handleSelect(b)}
                 disabled={isDone}
@@ -481,9 +501,11 @@ export default function AtendimentoPage() {
                   'w-full text-left rounded-2xl border p-4 transition-all',
                   isDone
                     ? 'opacity-50 cursor-default border-(--color-border) bg-(--color-surface)'
-                    : isSelected
-                      ? 'border-(--color-primary-700) bg-(--color-surface) shadow-md'
-                      : 'border-(--color-border) bg-(--color-surface) hover:border-(--color-primary-700)/50 hover:shadow-sm',
+                    : isInProgress
+                      ? 'border-purple-400 bg-purple-50 shadow-md'
+                      : isSelected
+                        ? 'border-(--color-primary-700) bg-(--color-surface) shadow-md'
+                        : 'border-(--color-border) bg-(--color-surface) hover:border-(--color-primary-700)/50 hover:shadow-sm',
                 ].join(' ')}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -497,7 +519,11 @@ export default function AtendimentoPage() {
                   </div>
                   {isDone
                     ? <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
-                    : <ChevronRight  size={14} className="text-(--color-text-muted) shrink-0" />
+                    : isInProgress
+                      ? <span className="text-[10px] font-semibold text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full shrink-0">
+                          Em atendimento
+                        </span>
+                      : <ChevronRight size={14} className="text-(--color-text-muted) shrink-0" />
                   }
                 </div>
                 <p className="font-bold text-(--color-text-heading) text-sm mt-1.5">

@@ -1,6 +1,6 @@
 import { api } from '../lib/api'
 
-export type BookingStatus  = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
+export type BookingStatus  = 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'CANCELLED' | 'COMPLETED'
 export type BookingType    = 'CONSULTATION' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'OTHER'
 
 export interface BookingResponse {
@@ -53,10 +53,11 @@ export const BOOKING_TYPE_LABEL: Record<BookingType, string> = {
 }
 
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
-  PENDING:   'Pendente',
-  CONFIRMED: 'Em Andamento',
-  CANCELLED: 'Cancelado',
-  COMPLETED: 'Finalizado',
+  PENDING:     'Pendente',
+  CONFIRMED:   'Confirmado',
+  IN_PROGRESS: 'Em Andamento',
+  CANCELLED:   'Cancelado',
+  COMPLETED:   'Finalizado',
 }
 
 // ── Stats types ────────────────────────────────────────────────────────────
@@ -113,6 +114,9 @@ export interface BookingRequest {
 export const bookingService = {
   create: (data: BookingRequest): Promise<BookingResponse> =>
     api.post('/bookings', data).then(r => r.data),
+
+  myBookings: (page = 0, size = 10): Promise<PageResponse<BookingResponse>> =>
+    api.get('/bookings/my-bookings', { params: { page, size, sort: 'bookingDate,desc' } }).then(r => r.data),
 
   getAvailability: (partnerId: string, date: string, serviceId?: string): Promise<AvailabilitySlot[]> =>
     api.get('/bookings/availability', {
