@@ -2,8 +2,14 @@ import { api } from '../lib/api'
 import type { Page } from './partner.service'
 
 // ── Enums ──────────────────────────────────────────────────────────────────
-export type PetSpecies = 'DOG' | 'CAT' | 'BIRD' | 'OTHER'
-export type PetGender  = 'MALE' | 'FEMALE'
+export type PetSpecies    = 'DOG' | 'CAT' | 'BIRD' | 'OTHER'
+export type PetGender     = 'MALE' | 'FEMALE'
+export type HistorySource = 'OWNER' | 'PLATFORM'
+
+export const HISTORY_SOURCE_LABEL: Record<HistorySource, string> = {
+  OWNER:    'Registrado pelo tutor',
+  PLATFORM: 'Registrado pela clínica',
+}
 
 export const SPECIES_LABEL: Record<PetSpecies, string> = {
   DOG: 'Cão', CAT: 'Gato', BIRD: 'Ave', OTHER: 'Outro',
@@ -53,6 +59,8 @@ export interface AppointmentRequest {
   providerId?:    string
   weightAtTime?:  number
   status:         AppointmentStatus
+  partnerName?:   string
+  bookingId?:     string
 }
 
 export interface AppointmentResponse {
@@ -66,6 +74,9 @@ export interface AppointmentResponse {
   status:         AppointmentStatus
   certified?:     boolean
   createdAt:      string
+  source?:        HistorySource
+  partnerName?:   string
+  bookingId?:     string
 }
 
 // ── Vaccines ──────────────────────────────────────────────────────────────
@@ -83,6 +94,8 @@ export interface VaccineRequest {
   manufacturer?:    string
   lot?:             string
   observations?:    string
+  partnerName?:     string
+  bookingId?:       string
 }
 
 export interface VaccineResponse {
@@ -95,6 +108,9 @@ export interface VaccineResponse {
   manufacturer?:    string
   lot?:             string
   observations?:    string
+  source?:          HistorySource
+  partnerName?:     string
+  bookingId?:       string
 }
 
 // ── Medications ───────────────────────────────────────────────────────────
@@ -107,6 +123,8 @@ export interface MedicationRequest {
   observations?:  string
   active?:        boolean
   appointmentId?: string
+  partnerName?:   string
+  bookingId?:     string
 }
 
 export interface MedicationResponse {
@@ -119,6 +137,9 @@ export interface MedicationResponse {
   observations?:  string
   active?:        boolean
   appointmentId?: string
+  source?:        HistorySource
+  partnerName?:   string
+  bookingId?:     string
 }
 
 // ── Exams ─────────────────────────────────────────────────────────────────
@@ -129,6 +150,8 @@ export interface ExamRequest {
   veterinarianName?:  string
   resultsSummary?:    string
   fileUrl?:           string
+  partnerName?:       string
+  bookingId?:         string
 }
 
 export interface ExamResponse {
@@ -140,29 +163,39 @@ export interface ExamResponse {
   resultsSummary?:    string
   fileUrl?:           string
   certified?:         boolean
+  source?:            HistorySource
+  partnerName?:       string
+  bookingId?:         string
 }
 
 // ── Weight Records ────────────────────────────────────────────────────────
 export interface WeightRequest {
-  weight: number
-  date:   string
+  weight:       number
+  date:         string
+  partnerName?: string
+  bookingId?:   string
 }
 
 export interface WeightResponse {
-  id:     string
-  weight: number
-  date:   string
+  id:           string
+  weight:       number
+  date:         string
+  source?:      HistorySource
+  partnerName?: string
+  bookingId?:   string
 }
 
 // ── Surgeries ─────────────────────────────────────────────────────────────
 export interface SurgeryRequest {
-  description:               string
-  date:                      string
-  vetName?:                  string
-  providerId?:               string
-  anesthesiaType?:           string
+  description:                string
+  date:                       string
+  vetName?:                   string
+  providerId?:                string
+  anesthesiaType?:            string
   postOperativeInstructions?: string
-  status?:                   string
+  status?:                    string
+  partnerName?:               string
+  bookingId?:                 string
 }
 
 export interface SurgeryResponse {
@@ -174,6 +207,9 @@ export interface SurgeryResponse {
   anesthesiaType?:            string
   postOperativeInstructions?: string
   status?:                    string
+  source?:                    HistorySource
+  partnerName?:               string
+  bookingId?:                 string
 }
 
 // ── History (endpoint legado) ─────────────────────────────────────────────
