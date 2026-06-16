@@ -40,6 +40,7 @@ export interface ServiceOfferRequest {
   durationMinutes: number
   billingUnit:     'HOURLY' | 'DAILY'
   categoryId?:     string
+  staffIds?:       string[]
 }
 
 export interface PartnerPayload {
@@ -125,9 +126,13 @@ export const partnerService = {
   updateMe: (data: PartnerPayload): Promise<PartnerResponse> =>
     api.put('/partners/me', data).then(r => r.data),
 
-  /** Adiciona um único serviço ao parceiro */
-  addService: (partnerId: string, data: ServiceOfferRequest): Promise<PartnerResponse> =>
+  /** Adiciona um único serviço ao parceiro (retorna o serviço criado) */
+  addService: (partnerId: string, data: ServiceOfferRequest): Promise<ServiceOffer> =>
     api.post(`/partners/${partnerId}/services`, data).then(r => r.data),
+
+  /** Atualiza um serviço específico e vincula colaboradores */
+  updateService: (partnerId: string, serviceId: string, data: ServiceOfferRequest): Promise<ServiceOffer> =>
+    api.put(`/partners/${partnerId}/services/${serviceId}`, data).then(r => r.data),
 
   listCategories: (): Promise<ServiceCategoryResponse[]> =>
     api.get('/categories').then(r => r.data),
