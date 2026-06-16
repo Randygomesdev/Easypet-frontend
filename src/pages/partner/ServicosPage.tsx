@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Loader2, Wrench, Plus, Pencil, Trash2,
-  Clock, Tag, CheckCircle2, XCircle, X,
+  Clock, Tag, CheckCircle2, XCircle, X, Users,
 } from 'lucide-react'
 import {
   partnerService,
@@ -11,6 +11,7 @@ import {
   type ServiceOfferRequest,
   type ServiceCategoryResponse,
 } from '../../services/partner.service'
+import { staffService, type StaffResponse } from '../../services/staff.service'
 
 /* ─────────────────────────────────────────────
    Helpers
@@ -102,19 +103,25 @@ function ServiceModal({
   saving,
   formError,
   categories,
+  staff,
+  selectedStaffIds,
   onChange,
+  onStaffToggle,
   onSave,
   onClose,
 }: {
-  open:       boolean
-  editingId:  string | null
-  form:       ServiceOfferRequest
-  saving:     boolean
-  formError:  string
-  categories: ServiceCategoryResponse[]
-  onChange:   <K extends keyof ServiceOfferRequest>(key: K, value: ServiceOfferRequest[K]) => void
-  onSave:     () => void
-  onClose:    () => void
+  open:             boolean
+  editingId:        string | null
+  form:             ServiceOfferRequest
+  saving:           boolean
+  formError:        string
+  categories:       ServiceCategoryResponse[]
+  staff:            StaffResponse[]
+  selectedStaffIds: string[]
+  onChange:         <K extends keyof ServiceOfferRequest>(key: K, value: ServiceOfferRequest[K]) => void
+  onStaffToggle:    (id: string) => void
+  onSave:           () => void
+  onClose:          () => void
 }) {
   /* fecha com Escape */
   useEffect(() => {
@@ -198,6 +205,34 @@ function ServiceModal({
             </div>
           )}
 
+          {/* Colaboradores */}
+          {staff.length > 0 && (
+            <div>
+              <FieldLabel>Colaboradores *</FieldLabel>
+              <div className="flex flex-wrap gap-2">
+                {staff.map(m => {
+                  const selected = selectedStaffIds.includes(m.id)
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => onStaffToggle(m.id)}
+                      className={[
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all',
+                        selected
+                          ? 'bg-(--color-primary-700) text-white border-(--color-primary-700)'
+                          : 'bg-(--color-bg) text-(--color-text-muted) border-(--color-border) hover:border-(--color-primary-700)/40 hover:text-(--color-primary-700)',
+                      ].join(' ')}
+                    >
+                      {selected && <CheckCircle2 size={11} />}
+                      {m.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Preço */}
           <div>
             <FieldLabel>Preço (R$) *</FieldLabel>
@@ -271,31 +306,37 @@ function ServiceModal({
    Page
 ───────────────────────────────────────────── */
 export default function ServicosPage() {
-  const [partner,    setPartner]    = useState<PartnerResponse | null>(null)
-  const [services,   setServices]   = useState<ServiceOffer[]>([])
-  const [categories, setCategories] = useState<ServiceCategoryResponse[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [modalOpen,  setModalOpen]  = useState(false)
-  const [saving,     setSaving]     = useState(false)
-  const [removing,   setRemoving]   = useState<string | null>(null)
-  const [editingId,  setEditingId]  = useState<string | null>(null)
-  const [form,       setForm]       = useState<ServiceOfferRequest>(EMPTY_FORM)
-  const [formError,  setFormError]  = useState('')
+  const [partner,          setPartner]          = useState<PartnerResponse | null>(null)
+  const [services,         setServices]         = useState<ServiceOffer[]>([])
+  const [categories,       setCategories]       = useState<ServiceCategoryResponse[]>([])
+  const [staff,            setStaff]            = useState<StaffResponse[]>([])
+  const [loading,          setLoading]          = useState(true)
+  const [modalOpen,        setModalOpen]        = useState(false)
+  const [saving,           setSaving]           = useState(false)
+  const [removing,         setRemoving]         = useState<string | null>(null)
+  const [editingId,        setEditingId]        = useState<string | null>(null)
+  const [form,             setForm]             = useState<ServiceOfferRequest>(EMPTY_FORM)
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([])
+  const [formError,        setFormError]        = useState('')
 
   useEffect(() => {
-    Promise.all([
-      partnerService.getMe(),
-      partnerService.listCategories().catch(() => [] as ServiceCategoryResponse[]),
-    ]).then(([p, cats]) => {
+    partnerService.getMe().then(p => {
       setPartner(p)
       setServices(p.services ?? [])
-      setCategories(cats)
+      return Promise.all([
+        partnerService.listCategories().catch(() => [] as ServiceCategoryResponse[]),
+        staffService.getByPartner(p.id).catch(() => [] as StaffResponse[]),
+      ]).then(([cats, staffList]) => {
+        setCategories(cats)
+        setStaff(staffList.filter(s => s.status === 'ACTIVE'))
+      })
     }).finally(() => setLoading(false))
   }, [])
 
   function openNew() {
     setEditingId(null)
     setForm(EMPTY_FORM)
+    setSelectedStaffIds([])
     setFormError('')
     setModalOpen(true)
   }
@@ -310,6 +351,7 @@ export default function ServicosPage() {
       billingUnit:     s.billingUnit,
       categoryId:      s.categoryId,
     })
+    setSelectedStaffIds(staff.filter(m => m.serviceIds?.includes(s.id)).map(m => m.id))
     setFormError('')
     setModalOpen(true)
   }
@@ -319,6 +361,7 @@ export default function ServicosPage() {
     setModalOpen(false)
     setEditingId(null)
     setForm(EMPTY_FORM)
+    setSelectedStaffIds([])
     setFormError('')
   }
 
@@ -327,10 +370,23 @@ export default function ServicosPage() {
     setFormError('')
   }
 
+  function handleStaffToggle(id: string) {
+    setSelectedStaffIds(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    )
+    setFormError('')
+  }
+
   function validate() {
     if (!form.name.trim()) return 'O nome do serviço é obrigatório.'
     if (form.price <= 0)   return 'O preço deve ser maior que R$ 0,00.'
+    if (staff.length > 0 && selectedStaffIds.length === 0) return 'Selecione pelo menos um colaborador para este serviço.'
     return ''
+  }
+
+  async function refreshStaff(partnerId: string) {
+    const updated = await staffService.getByPartner(partnerId).catch(() => [] as StaffResponse[])
+    setStaff(updated.filter(s => s.status === 'ACTIVE'))
   }
 
   async function handleSave() {
@@ -341,18 +397,13 @@ export default function ServicosPage() {
     setFormError('')
     try {
       if (editingId === null) {
-        const updated = await partnerService.addService(partner.id, form)
-        setPartner(updated)
-        setServices(updated.services ?? [])
+        const newService = await partnerService.addService(partner.id, { ...form, staffIds: selectedStaffIds })
+        setServices(prev => [...prev, newService])
+        await refreshStaff(partner.id)
       } else {
-        const updatedServices: ServiceOfferRequest[] = services.map(s =>
-          s.id === editingId
-            ? { name: form.name, description: form.description, price: form.price, durationMinutes: form.durationMinutes, billingUnit: form.billingUnit, categoryId: form.categoryId }
-            : { name: s.name,    description: s.description,    price: s.price,    durationMinutes: s.durationMinutes,    billingUnit: s.billingUnit,    categoryId: s.categoryId }
-        )
-        const updated = await partnerService.updateMe(buildPayload(partner, { services: updatedServices }))
-        setPartner(updated)
-        setServices(updated.services ?? [])
+        const updated = await partnerService.updateService(partner.id, editingId, { ...form, staffIds: selectedStaffIds })
+        setServices(prev => prev.map(s => s.id === editingId ? updated : s))
+        await refreshStaff(partner.id)
       }
       closeModal()
     } catch {
@@ -373,6 +424,7 @@ export default function ServicosPage() {
       const updated = await partnerService.updateMe(buildPayload(partner, { services: updatedServices }))
       setPartner(updated)
       setServices(updated.services ?? [])
+      await refreshStaff(partner.id)
     } catch {
       alert('Erro ao remover serviço.')
     } finally {
@@ -398,7 +450,10 @@ export default function ServicosPage() {
         saving={saving}
         formError={formError}
         categories={categories}
+        staff={staff}
+        selectedStaffIds={selectedStaffIds}
         onChange={handleChange}
+        onStaffToggle={handleStaffToggle}
         onSave={handleSave}
         onClose={closeModal}
       />
@@ -448,6 +503,7 @@ export default function ServicosPage() {
             <ServiceCard
               key={s.id}
               service={s}
+              staffCount={staff.filter(m => m.serviceIds?.includes(s.id)).length}
               isRemoving={removing === s.id}
               onEdit={() => openEdit(s)}
               onRemove={() => handleRemove(s.id)}
@@ -463,12 +519,13 @@ export default function ServicosPage() {
    Card de serviço
 ───────────────────────────────────────────── */
 function ServiceCard({
-  service, isRemoving, onEdit, onRemove,
+  service, staffCount, isRemoving, onEdit, onRemove,
 }: {
-  service:   ServiceOffer
+  service:    ServiceOffer
+  staffCount: number
   isRemoving: boolean
-  onEdit:    () => void
-  onRemove:  () => void
+  onEdit:     () => void
+  onRemove:   () => void
 }) {
   return (
     <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 shadow-sm
@@ -496,13 +553,22 @@ function ServiceCard({
         )}
       </div>
 
-      {/* Categoria */}
-      {service.categoryName && (
-        <div className="flex">
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
-                           bg-(--color-primary-700)/10 text-(--color-primary-700)">
-            {service.categoryName}
-          </span>
+      {/* Categoria + colaboradores */}
+      {(service.categoryName || staffCount > 0) && (
+        <div className="flex items-center flex-wrap gap-1.5">
+          {service.categoryName && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
+                             bg-(--color-primary-700)/10 text-(--color-primary-700)">
+              {service.categoryName}
+            </span>
+          )}
+          {staffCount > 0 && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full
+                             bg-(--color-secondary-500)/10 text-(--color-secondary-600)">
+              <Users size={10} />
+              {staffCount} colaborador{staffCount !== 1 ? 'es' : ''}
+            </span>
+          )}
         </div>
       )}
 
