@@ -124,7 +124,8 @@ export default function CartPage() {
       })
       const url = MP_SANDBOX ? result.sandboxInitPoint : result.initPoint
       window.location.href = url
-    } catch {
+    } catch (err: any) {
+      console.error('Checkout error:', err?.response?.data ?? err)
       setPayError('Não foi possível iniciar o pagamento. Tente novamente.')
       setPaying(false)
     }
