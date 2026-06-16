@@ -22,14 +22,17 @@ export default function PaymentSuccessPage() {
         if (!meta?.petId || !meta?.partnerId) continue
         try {
           await bookingService.create({
-            petId:       meta.petId,
-            partnerId:   meta.partnerId,
-            serviceId:   item.productId,
-            bookingDate: `${meta.scheduledDate}T${meta.scheduledTime}:00`,
-            type:        meta.bookingType,
-            price:       item.price,
-            staffId:     meta.staffId,
+            petId:      meta.petId,
+            partnerId:  meta.partnerId,
+            serviceId:  item.productId,
+            type:       meta.bookingType,
+            price:      item.price,
+            staffId:    meta.staffId,
             paymentMethod: 'CARD',
+            ...(meta.checkIn
+              ? { checkIn: meta.checkIn, checkOut: meta.checkOut }
+              : { bookingDate: `${meta.scheduledDate}T${meta.scheduledTime}:00` }
+            ),
           })
           created++
         } catch (err) {

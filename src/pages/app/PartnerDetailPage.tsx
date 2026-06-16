@@ -4,12 +4,15 @@ import {
   ArrowLeft, MapPin, Star, Phone, Clock, Loader2,
   MessageCircle, ExternalLink, ChevronLeft, ChevronRight,
   Store, Package, Send, CalendarDays, CheckCircle, CreditCard, X,
+  ShoppingCart,
 } from 'lucide-react'
 import { partnerService, type PartnerResponse, type ReviewResponse, type ReviewRequest, type ServiceOffer } from '../../services/partner.service'
 import { packageService, type PackageTemplateResponse, type PaymentMethod, type CustomerPackageResponse } from '../../services/package.service'
-import { bookingService, type BookingRequest, type AvailabilitySlot, type StaffSlot } from '../../services/booking.service'
+import { bookingService, type AvailabilitySlot, type StaffSlot } from '../../services/booking.service'
 import { petService, type PetResponse, SPECIES_LABEL } from '../../services/pet.service'
 import { useAuth } from '../../contexts/AuthContext'
+import { useCart } from '../../contexts/CartContext'
+import type { EasypetCartMeta } from '../../services/payment.service'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -209,16 +212,18 @@ const inputCls = `w-full px-3 py-2.5 text-sm rounded-xl border border-(--color-b
 
 // ── BookingModal ──────────────────────────────────────────────────────────────
 
-type BookingView = 'config' | 'slots' | 'payment' | 'success'
+type BookingView = 'config' | 'slots' | 'confirm' | 'added'
 
 function BookingModal({
-  service, partnerId, onClose, onSuccess,
+  service, partnerId, partnerName, onClose,
 }: {
-  service:   ServiceOffer
-  partnerId: string
-  onClose:   () => void
-  onSuccess: () => void
+  service:     ServiceOffer
+  partnerId:   string
+  partnerName: string
+  onClose:     () => void
 }) {
+  const navigate = useNavigate()
+  const { addItem } = useCart()
   const isDaily = service.billingUnit === 'DAILY'
 
   const [view,           setView]           = useState<BookingView>('config')
@@ -236,14 +241,8 @@ function BookingModal({
   const [checkInTime,  setCheckInTime]  = useState('08:00')
   const [checkOutDate, setCheckOutDate] = useState('')
   const [checkOutTime, setCheckOutTime] = useState('18:00')
-  // Payment
-  const [matchingPkg,   setMatchingPkg]   = useState<CustomerPackageResponse | null>(null)
-  const [useCredit,     setUseCredit]     = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PIX')
-  const [notes,         setNotes]         = useState('')
   // Submit
-  const [submitting, setSubmitting] = useState(false)
-  const [error,      setError]      = useState('')
+  const [error, setError] = useState('')
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -276,80 +275,65 @@ function BookingModal({
     setRequestFitting(!slot.available && !!slot.allowFittingRequest)
   }
 
-  function loadPackageCredits() {
-    packageService.myBalances()
-      .then(pkgs => {
-        const match = pkgs.find(p =>
-          p.packageTemplate.partnerId === partnerId &&
-          p.packageTemplate.serviceId === service.id &&
-          p.remainingCredits > 0 &&
-          p.status === 'ACTIVE'
-        )
-        if (match) { setMatchingPkg(match); setUseCredit(true) }
-      })
-      .catch(() => {})
-  }
-
   function goNext() {
     setError('')
     if (view === 'config') {
       if (!petId) { setError('Selecione um pet.'); return }
       if (isDaily) {
         if (!checkInDate || !checkOutDate) { setError('Preencha as datas de check-in e check-out.'); return }
-        loadPackageCredits()
-        setView('payment')
+        setView('confirm')
       } else {
         if (!date) { setError('Selecione uma data.'); return }
         setView('slots')
       }
     } else if (view === 'slots') {
       if (!selectedSlot) { setError('Selecione um horário.'); return }
-      loadPackageCredits()
-      setView('payment')
+      setView('confirm')
     }
   }
 
   function goBack() {
     setError('')
     if (view === 'slots')   setView('config')
-    if (view === 'payment') setView(isDaily ? 'config' : 'slots')
+    if (view === 'confirm') setView(isDaily ? 'config' : 'slots')
   }
 
-  async function handleSubmit() {
-    setSubmitting(true)
-    setError('')
-    try {
-      const req: BookingRequest = {
-        petId,
-        partnerId,
-        serviceId:         service.id,
-        type:              'OTHER',
-        price:             service.price,
-        notes:             notes || undefined,
-        staffId:           staffId ?? undefined,
-        requestFitting:    requestFitting || undefined,
-        paymentMethod:     useCredit ? 'PACKAGE_CREDIT' : paymentMethod,
-        customerPackageId: useCredit && matchingPkg ? matchingPkg.id : undefined,
-      }
-      if (isDaily) {
-        req.checkIn  = `${checkInDate}T${checkInTime}:00`
-        req.checkOut = `${checkOutDate}T${checkOutTime}:00`
-      } else {
-        req.bookingDate = `${date}T${selectedSlot!.time}:00`
-      }
-      await bookingService.create(req)
-      setView('success')
-      setTimeout(onSuccess, 2200)
-    } catch {
-      setError('Não foi possível realizar o agendamento. Tente novamente.')
-    } finally {
-      setSubmitting(false)
+  function handleAddToCart() {
+    const pet = pets.find(p => p.id === petId)
+    const staffMember = staffId
+      ? (selectedSlot?.staff as StaffSlot[] | undefined)?.find(s => s.id === staffId)
+      : undefined
+
+    const meta: EasypetCartMeta = {
+      partnerId,
+      partnerName,
+      bookingType: 'OTHER',
+      scheduledDate: isDaily ? checkInDate : date,
+      scheduledTime: isDaily ? checkInTime : (selectedSlot?.time ?? ''),
+      checkIn:  isDaily ? `${checkInDate}T${checkInTime}:00`  : undefined,
+      checkOut: isDaily ? `${checkOutDate}T${checkOutTime}:00` : undefined,
+      durationMinutes: service.durationMinutes ?? undefined,
+      staffId:   staffId ?? undefined,
+      staffName: staffMember?.name,
+      petId,
+      petName: pet?.name ?? '',
     }
+
+    addItem({
+      productId:   service.id,
+      label:       service.name,
+      description: service.description ?? undefined,
+      price:       isDaily ? dailyNights * service.price : service.price,
+      quantity:    1,
+      metadata:    meta as unknown as Record<string, unknown>,
+    })
+
+    setView('added')
   }
 
   // Step indicator
   const STEPS = isDaily ? ['Dados', 'Confirmar'] : ['Dados', 'Horário', 'Confirmar']
-  const stepIdx = view === 'config' ? 0 : view === 'slots' ? 1 : view === 'payment' ? (isDaily ? 1 : 2) : 99
+  const stepIdx = view === 'config' ? 0 : view === 'slots' ? 1 : view === 'confirm' ? (isDaily ? 1 : 2) : 99
 
   // Daily total calc
   const dailyNights = (checkInDate && checkOutDate)
@@ -375,7 +359,7 @@ function BookingModal({
         </div>
 
         {/* Step indicator */}
-        {view !== 'success' && (
+        {view !== 'added' && (
           <div className="flex items-center px-5 py-3 border-b border-(--color-border) shrink-0">
             {STEPS.map((label, i) => (
               <Fragment key={label}>
@@ -577,14 +561,18 @@ function BookingModal({
             </>
           )}
 
-          {/* ── VIEW: payment ── */}
-          {view === 'payment' && (
+          {/* ── VIEW: confirm ── */}
+          {view === 'confirm' && (
             <>
               {/* Resumo */}
               <div className="bg-(--color-bg) rounded-xl p-4 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-(--color-text-muted)">Serviço</span>
                   <span className="font-medium text-(--color-text-heading)">{service.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-(--color-text-muted)">Estabelecimento</span>
+                  <span className="font-medium text-(--color-text-heading)">{partnerName}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-(--color-text-muted)">Pet</span>
@@ -627,110 +615,80 @@ function BookingModal({
                 </div>
               </div>
 
-              {/* Crédito de pacote */}
-              {matchingPkg && (
-                <div onClick={() => setUseCredit(v => !v)}
-                     className={`flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-colors
-                       ${useCredit
-                         ? 'border-(--color-secondary-500) bg-(--color-secondary-500)/5'
-                         : 'border-(--color-border) hover:border-(--color-secondary-400)'
-                       }`}>
-                  <div className={`mt-0.5 w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center
-                    ${useCredit ? 'bg-(--color-secondary-500) border-(--color-secondary-500)' : 'border-(--color-border)'}`}>
-                    {useCredit && <CheckCircle size={11} className="text-white" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-(--color-text-heading)">Usar crédito do pacote</p>
-                    <p className="text-xs text-(--color-text-muted)">
-                      {matchingPkg.packageTemplate.name} · {matchingPkg.remainingCredits} sessão(ões) restante(s)
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Forma de pagamento */}
-              {!useCredit && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-(--color-text-muted) uppercase tracking-wide">Forma de pagamento</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(['PIX', 'CARD'] as PaymentMethod[]).map(m => (
-                      <button key={m} onClick={() => setPaymentMethod(m)}
-                              className={`py-3 text-sm rounded-xl border-2 font-medium transition-colors
-                                ${paymentMethod === m
-                                  ? 'border-(--color-secondary-500) bg-(--color-secondary-500)/10 text-(--color-secondary-500)'
-                                  : 'border-(--color-border) text-(--color-text-body) hover:border-(--color-secondary-400)'
-                                }`}>
-                        {m === 'PIX' ? 'PIX' : 'Cartão de Crédito'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Observações */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-(--color-text-muted) uppercase tracking-wide">Observações</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                          placeholder="Informações adicionais para o parceiro (opcional)…"
-                          rows={3} className={`${inputCls} resize-none`} />
-              </div>
+              <p className="text-xs text-(--color-text-muted) text-center">
+                O pagamento será realizado no carrinho antes de confirmar o agendamento.
+              </p>
             </>
           )}
 
-          {/* ── VIEW: success ── */}
-          {view === 'success' && (
-            <div className="flex flex-col items-center gap-3 py-10 text-center">
-              <CheckCircle size={52} className="text-green-500" />
-              <p className="text-lg font-bold text-(--color-text-heading)">
-                {requestFitting ? 'Encaixe solicitado!' : 'Agendamento confirmado!'}
-              </p>
-              <p className="text-sm text-(--color-text-muted) max-w-xs">
-                {requestFitting
-                  ? 'O parceiro analisará a disponibilidade e entrará em contato.'
-                  : 'Seu agendamento foi registrado. Aguarde a confirmação do parceiro.'}
-              </p>
+          {/* ── VIEW: added ── */}
+          {view === 'added' && (
+            <div className="flex flex-col items-center gap-4 py-10 text-center">
+              <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
+                <ShoppingCart size={32} className="text-green-500" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-(--color-text-heading)">Adicionado ao carrinho!</p>
+                <p className="text-sm text-(--color-text-muted) mt-1">
+                  {service.name} foi adicionado ao seu carrinho.
+                </p>
+              </div>
             </div>
           )}
 
-          {error && view !== 'success' && <p className="text-sm text-red-500">{error}</p>}
+          {error && view !== 'added' && <p className="text-sm text-red-500">{error}</p>}
         </div>
 
         {/* Footer */}
-        {view !== 'success' && (
-          <div className="flex gap-3 p-5 border-t border-(--color-border) shrink-0">
-            {view === 'config' ? (
+        <div className="flex gap-3 p-5 border-t border-(--color-border) shrink-0">
+          {view === 'added' ? (
+            <>
               <button onClick={onClose}
                       className="flex-1 py-2.5 text-sm rounded-xl border border-(--color-border)
                                  text-(--color-text-body) hover:bg-(--color-bg) transition-colors">
-                Cancelar
+                Continuar comprando
               </button>
-            ) : (
-              <button onClick={goBack}
-                      className="flex-1 py-2.5 text-sm rounded-xl border border-(--color-border)
-                                 text-(--color-text-body) hover:bg-(--color-bg) transition-colors">
-                Voltar
+              <button onClick={() => navigate('/app/carrinho')}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
+                                 bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600) transition-colors">
+                <ShoppingCart size={15} /> Ver carrinho
               </button>
-            )}
+            </>
+          ) : (
+            <>
+              {view === 'config' ? (
+                <button onClick={onClose}
+                        className="flex-1 py-2.5 text-sm rounded-xl border border-(--color-border)
+                                   text-(--color-text-body) hover:bg-(--color-bg) transition-colors">
+                  Cancelar
+                </button>
+              ) : (
+                <button onClick={goBack}
+                        className="flex-1 py-2.5 text-sm rounded-xl border border-(--color-border)
+                                   text-(--color-text-body) hover:bg-(--color-bg) transition-colors">
+                  Voltar
+                </button>
+              )}
 
-            {view !== 'payment' ? (
-              <button onClick={goNext} disabled={pets.length === 0}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
-                                 bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600)
-                                 disabled:opacity-50 transition-colors">
-                {view === 'config' && !isDaily ? 'Ver horários' : 'Próximo'}
-                <ChevronRight size={15} />
-              </button>
-            ) : (
-              <button onClick={handleSubmit} disabled={submitting}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
-                                 bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600)
-                                 disabled:opacity-50 transition-colors">
-                {submitting ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
-                Confirmar agendamento
-              </button>
-            )}
-          </div>
-        )}
+              {view !== 'confirm' ? (
+                <button onClick={goNext} disabled={pets.length === 0}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
+                                   bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600)
+                                   disabled:opacity-50 transition-colors">
+                  {view === 'config' && !isDaily ? 'Ver horários' : 'Próximo'}
+                  <ChevronRight size={15} />
+                </button>
+              ) : (
+                <button onClick={handleAddToCart}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
+                                   bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600)
+                                   transition-colors">
+                  <ShoppingCart size={15} /> Adicionar ao carrinho
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -1096,8 +1054,8 @@ export default function PartnerDetailPage() {
         <BookingModal
           service={selectedService}
           partnerId={id}
+          partnerName={partner.name}
           onClose={() => setSelectedService(null)}
-          onSuccess={() => { setSelectedService(null); navigate('/app/agendamentos') }}
         />
       )}
       {selectedPackage && (

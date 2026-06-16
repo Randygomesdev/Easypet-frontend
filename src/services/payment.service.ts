@@ -28,16 +28,18 @@ export interface CheckoutResponse {
 // ── Easypet booking metadata stored in cart item ──────────────────────────────
 
 export interface EasypetCartMeta {
-  partnerId:       string
-  partnerName:     string
-  bookingType:     'CONSULTATION' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'OTHER'
-  scheduledDate:   string   // YYYY-MM-DD
-  scheduledTime:   string   // HH:mm
-  durationMinutes: number
-  staffId?:        string
-  staffName?:      string
-  petId:           string
-  petName:         string
+  partnerId:        string
+  partnerName:      string
+  bookingType:      'CONSULTATION' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'OTHER'
+  scheduledDate:    string   // YYYY-MM-DD (check-in date for daily)
+  scheduledTime:    string   // HH:mm (check-in time for daily)
+  checkIn?:         string   // ISO datetime — only for DAILY billing
+  checkOut?:        string   // ISO datetime — only for DAILY billing
+  durationMinutes?: number
+  staffId?:         string
+  staffName?:       string
+  petId:            string
+  petName:          string
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
