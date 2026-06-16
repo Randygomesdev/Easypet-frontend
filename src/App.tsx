@@ -23,6 +23,7 @@ import PetFormPage        from './pages/app/PetFormPage'
 import PetDetailPage      from './pages/app/PetDetailPage'
 import PartnerDetailPage       from './pages/app/PartnerDetailPage'
 import MeusAgendamentosPage   from './pages/app/MeusAgendamentosPage'
+import CartPage               from './pages/app/CartPage'
 import ParceirosPage       from './pages/admin/ParceirosPage'
 import ParceiroDetailPage from './pages/admin/ParceiroDetailPage'
 import ClientesPage        from './pages/admin/ClientesPage'
@@ -96,6 +97,7 @@ const router = createBrowserRouter([
       { path: 'pets/:id',                     element: <PetDetailPage /> },
       { path: 'pets/:id/editar',              element: <PetFormPage /> },
       { path: 'agendamentos',                 element: <MeusAgendamentosPage /> },
+      { path: 'carrinho',                     element: <CartPage /> },
     ],
   },
 
