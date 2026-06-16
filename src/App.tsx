@@ -24,6 +24,9 @@ import PetDetailPage      from './pages/app/PetDetailPage'
 import PartnerDetailPage       from './pages/app/PartnerDetailPage'
 import MeusAgendamentosPage   from './pages/app/MeusAgendamentosPage'
 import CartPage               from './pages/app/CartPage'
+import PaymentSuccessPage     from './pages/app/PaymentSuccessPage'
+import PaymentPendingPage     from './pages/app/PaymentPendingPage'
+import PaymentFailurePage     from './pages/app/PaymentFailurePage'
 import ParceirosPage       from './pages/admin/ParceirosPage'
 import ParceiroDetailPage from './pages/admin/ParceiroDetailPage'
 import ClientesPage        from './pages/admin/ClientesPage'
@@ -98,6 +101,9 @@ const router = createBrowserRouter([
       { path: 'pets/:id/editar',              element: <PetFormPage /> },
       { path: 'agendamentos',                 element: <MeusAgendamentosPage /> },
       { path: 'carrinho',                     element: <CartPage /> },
+      { path: 'pagamento/sucesso',            element: <PaymentSuccessPage /> },
+      { path: 'pagamento/pendente',           element: <PaymentPendingPage /> },
+      { path: 'pagamento/falha',              element: <PaymentFailurePage /> },
     ],
   },
 

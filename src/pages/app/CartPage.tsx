@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, Trash2, ArrowLeft, CalendarDays,
-  Clock, User, PawPrint, Store, ShoppingBag,
+  Clock, User, PawPrint, Store, ShoppingBag, Loader2,
 } from 'lucide-react'
 import { useCart, type CartItem } from '../../contexts/CartContext'
+import { paymentService } from '../../services/payment.service'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -97,9 +99,36 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+const MP_SANDBOX = import.meta.env.VITE_MP_SANDBOX !== 'false'
+
 export default function CartPage() {
   const { items, removeItem, clearCart, total, itemCount } = useCart()
-  const navigate = useNavigate()
+  const navigate    = useNavigate()
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState('')
+
+  async function handleCheckout() {
+    if (items.length === 0) return
+    setPaying(true)
+    setPayError('')
+    try {
+      const result = await paymentService.checkout({
+        items: items.map(i => ({
+          productId:   i.productId,
+          label:       i.label,
+          description: i.description,
+          price:       i.price,
+          quantity:    i.quantity,
+          metadata:    i.metadata,
+        })),
+      })
+      const url = MP_SANDBOX ? result.sandboxInitPoint : result.initPoint
+      window.location.href = url
+    } catch {
+      setPayError('Não foi possível iniciar o pagamento. Tente novamente.')
+      setPaying(false)
+    }
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -174,22 +203,29 @@ export default function CartPage() {
           </div>
 
           {/* Actions */}
+          {payError && (
+            <p className="text-xs text-red-500 font-medium text-center">{payError}</p>
+          )}
           <div className="flex gap-3">
             <button
               onClick={() => { if (confirm('Limpar todos os itens do carrinho?')) clearCart() }}
+              disabled={paying}
               className="flex-1 border border-(--color-border) text-(--color-text-muted)
                          hover:border-red-300 hover:text-red-500 hover:bg-red-50
-                         font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors"
+                         font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Limpar carrinho
             </button>
             <button
-              disabled
-              title="Em breve — processamento de pagamento"
-              className="flex-2 flex-grow bg-(--color-primary-700) text-white font-semibold
-                         px-6 py-2.5 rounded-xl text-sm opacity-60 cursor-not-allowed"
+              onClick={handleCheckout}
+              disabled={paying}
+              className="flex-grow flex items-center justify-center gap-2 bg-(--color-primary-700)
+                         hover:bg-(--color-primary-800) text-white font-semibold px-6 py-2.5
+                         rounded-xl text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Finalizar pedido
+              {paying && <Loader2 size={15} className="animate-spin" />}
+              {paying ? 'Redirecionando...' : 'Finalizar pedido'}
             </button>
           </div>
         </div>
