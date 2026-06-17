@@ -214,8 +214,9 @@ export default function ServicosTab({ partnerId }: { partnerId: string }) {
     setSaving(true); setFormError('')
     try {
       if (editingId === null) {
-        const updated = await partnerService.addService(partnerId, form)
-        setPartner(updated); setServices(updated.services ?? [])
+        const created = await partnerService.addService(partnerId, form)
+        const nextServices = [...services, created]
+        setServices(nextServices); setPartner({ ...partner, services: nextServices })
       } else {
         const updatedServices: ServiceOfferRequest[] = services.map(s =>
           s.id === editingId
