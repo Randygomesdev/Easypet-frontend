@@ -11,14 +11,12 @@ import {
   petService,
   type PetResponse,
   type PetHistoryResponse,
-  type AppointmentResponse, type AppointmentRequest,
   type VaccineResponse,     type VaccineRequest,
   type MedicationResponse,  type MedicationRequest,
   type ExamResponse,        type ExamRequest,
   type WeightResponse,      type WeightRequest,
   type SurgeryResponse,     type SurgeryRequest,
   SPECIES_LABEL, GENDER_LABEL,
-  APPOINTMENT_STATUS_LABEL, type AppointmentStatus,
   VACCINE_STATUS_LABEL,     type VaccineStatus,
 } from '../../services/pet.service'
 import {

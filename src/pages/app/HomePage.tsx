@@ -4,7 +4,7 @@ import {
   Search, MapPin, Star, StarHalf, Loader2, Store,
   ChevronLeft, ChevronRight, PawPrint, ArrowUpDown, Clock,
 } from 'lucide-react'
-import { partnerService, type PartnerResponse, CATEGORY_LABEL } from '../../services/partner.service'
+import { partnerService, type PartnerResponse } from '../../services/partner.service'
 import { petService, type PetResponse, SPECIES_LABEL } from '../../services/pet.service'
 import { useAuth } from '../../contexts/AuthContext'
 

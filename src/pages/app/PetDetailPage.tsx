@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, PawPrint, Loader2, Plus, X, Edit2, Trash2, Save,
   Stethoscope, Syringe, Pill, Scale, FlaskConical, Scissors,
-  ChevronRight, Calendar, Weight,
+  ChevronRight, Weight,
 } from 'lucide-react'
 import {
   petService,
@@ -86,7 +86,7 @@ function WeightChart({ weights }: { weights: WeightResponse[] }) {
         <LineChart data={data}>
           <XAxis dataKey="date" tick={{ fontSize: 10 }} />
           <YAxis tick={{ fontSize: 10 }} unit="kg" width={40} />
-          <Tooltip formatter={(v: number) => [`${v} kg`, 'Peso']} />
+          <Tooltip formatter={(v) => [`${v} kg`, 'Peso']} />
           <Line type="monotone" dataKey="peso" stroke="var(--color-secondary-500)" strokeWidth={2} dot={{ r: 3 }} />
         </LineChart>
       </ResponsiveContainer>
@@ -166,7 +166,7 @@ function Textarea({ value, onChange, placeholder, rows = 3 }: {
 const APPT_STATUS_OPTIONS = Object.entries(APPOINTMENT_STATUS_LABEL).map(([v, l]) => ({ value: v, label: l }))
 const EMPTY_APPT: AppointmentRequest = { date: '', reason: '', status: 'SCHEDULED', clinicalNotes: '', vetName: '', weightAtTime: undefined }
 
-function AppointmentPanel({ petId, onClose }: { petId: string; onClose: () => void }) {
+function AppointmentPanel({ petId }: { petId: string }) {
   const [list,    setList]    = useState<AppointmentResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [form,    setForm]    = useState<AppointmentRequest | null>(null)
@@ -865,7 +865,7 @@ export default function PetDetailPage() {
       {id && (
         <>
           <SlidePanel open={panel === 'appointments'} onClose={() => setPanel(null)} title="Consultas">
-            <AppointmentPanel petId={id} onClose={() => setPanel(null)} />
+            <AppointmentPanel petId={id} />
           </SlidePanel>
           <SlidePanel open={panel === 'vaccines'}     onClose={() => setPanel(null)} title="Vacinas">
             <VaccinePanel petId={id} />

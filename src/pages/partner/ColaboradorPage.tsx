@@ -274,7 +274,7 @@ export default function ColaboradorPage({ adminPartnerId }: Props = {}) {
           {activeTab === 'dados' && (
             <DadosTab
               name={name}           setName={setName}
-              photoUrl={photoUrl}   setPhotoUrl={setPhotoUrl}
+              photoUrl={photoUrl}
               jobTitle={jobTitle}   setJobTitle={setJobTitle}
               speciality={speciality} setSpeciality={setSpeciality}
               phone={phone}         setPhone={setPhone}
@@ -336,12 +336,12 @@ export default function ColaboradorPage({ adminPartnerId }: Props = {}) {
 /* ════════════════════════════════════════
    Tab — Dados Colaborador
 ════════════════════════════════════════ */
-function DadosTab({ name, setName, photoUrl, setPhotoUrl, jobTitle, setJobTitle,
+function DadosTab({ name, setName, photoUrl, jobTitle, setJobTitle,
                     speciality, setSpeciality, phone, setPhone, email, setEmail,
                     whatsapp, setWhatsapp, availableServices, selectedServiceIds,
                     setSelectedServiceIds, error }: {
   name: string; setName: (v: string) => void
-  photoUrl: string; setPhotoUrl: (v: string) => void
+  photoUrl: string
   jobTitle: string; setJobTitle: (v: string) => void
   speciality: string; setSpeciality: (v: string) => void
   phone: string; setPhone: (v: string) => void

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Loader2, Search, ChevronLeft, ChevronRight,
   CheckCircle2, Stethoscope, Syringe, Scissors,
-  Clock, SlidersHorizontal, CalendarDays, Users,
+  Clock, SlidersHorizontal, CalendarDays,
 } from 'lucide-react'
 import { staffService, type StaffResponse } from '../../../services/staff.service'
 import { petService, type PetResponse } from '../../../services/pet.service'
@@ -52,10 +52,11 @@ function buildChips() {
 }
 
 const STATUS_STYLE: Record<BookingStatus, string> = {
-  COMPLETED: 'bg-emerald-100 text-emerald-700',
-  CONFIRMED: 'bg-violet-100  text-violet-700',
-  PENDING:   'bg-amber-100   text-amber-700',
-  CANCELLED: 'bg-pink-100    text-pink-600',
+  COMPLETED:   'bg-emerald-100 text-emerald-700',
+  CONFIRMED:   'bg-violet-100  text-violet-700',
+  IN_PROGRESS: 'bg-blue-100    text-blue-700',
+  PENDING:     'bg-amber-100   text-amber-700',
+  CANCELLED:   'bg-pink-100    text-pink-600',
 }
 
 function StatusBadge({ status }: { status: BookingStatus }) {
