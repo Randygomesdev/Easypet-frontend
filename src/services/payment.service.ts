@@ -42,6 +42,16 @@ export interface EasypetCartMeta {
   petName:          string
 }
 
+// ── Easypet package metadata stored in cart item ──────────────────────────────
+
+export interface EasypetPackageMeta {
+  isPackage:    true
+  partnerId:    string
+  partnerName:  string
+  sessions:     number   // quantidade de créditos/sessões do pacote
+  validityDays: number
+}
+
 // ── Credit wallet ─────────────────────────────────────────────────────────────
 
 export interface CreditBalanceResponse {
