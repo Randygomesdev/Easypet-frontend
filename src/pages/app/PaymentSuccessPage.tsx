@@ -12,7 +12,16 @@ export default function PaymentSuccessPage() {
   const [status, setStatus]       = useState<'creating' | 'done' | 'error'>('creating')
   const [bookingCount, setCount]  = useState(0)
 
+  const isCredit = searchParams.get('source') === 'credit'
+
   useEffect(() => {
+    // Quando veio do fluxo de crédito, os bookings já foram criados no CartPage
+    if (isCredit) {
+      setCount(Number(searchParams.get('count') ?? 0))
+      setStatus('done')
+      return
+    }
+
     async function createBookings() {
       if (items.length === 0) { setStatus('done'); return }
 
@@ -46,7 +55,7 @@ export default function PaymentSuccessPage() {
 
     createBookings()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isCredit])
 
   const paymentId = searchParams.get('payment_id') ?? ''
 
@@ -63,7 +72,9 @@ export default function PaymentSuccessPage() {
             <CheckCircle size={40} className="text-green-500" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-(--color-text-heading)">Pagamento confirmado!</h1>
+            <h1 className="text-2xl font-bold text-(--color-text-heading)">
+              {isCredit ? 'Agendamento confirmado!' : 'Pagamento confirmado!'}
+            </h1>
             {bookingCount > 0 && (
               <p className="text-sm text-(--color-text-muted) mt-2">
                 {bookingCount} {bookingCount === 1 ? 'agendamento criado' : 'agendamentos criados'} com sucesso.

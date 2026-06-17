@@ -42,9 +42,20 @@ export interface EasypetCartMeta {
   petName:          string
 }
 
+// ── Credit wallet ─────────────────────────────────────────────────────────────
+
+export interface CreditBalanceResponse {
+  balance: number
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export const paymentService = {
   checkout: (data: CheckoutRequest): Promise<CheckoutResponse> =>
     api.post('/payments/checkout', data).then(r => r.data),
+}
+
+export const creditService = {
+  getBalance: (): Promise<CreditBalanceResponse> =>
+    api.get('/payments/credits/balance').then(r => r.data),
 }

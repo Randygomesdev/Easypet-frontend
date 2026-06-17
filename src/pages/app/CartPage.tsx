@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, Trash2, ArrowLeft, CalendarDays,
   Clock, User, PawPrint, Store, ShoppingBag, Loader2,
+  Wallet, ChevronDown, ChevronUp, CheckCircle2,
 } from 'lucide-react'
 import { useCart, type CartItem } from '../../contexts/CartContext'
-import { paymentService } from '../../services/payment.service'
+import { paymentService, creditService } from '../../services/payment.service'
+import { bookingService } from '../../services/booking.service'
+import type { EasypetCartMeta } from '../../services/payment.service'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -33,7 +36,6 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
 
   return (
     <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 shadow-sm">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-(--color-text-heading) text-base">{item.label}</h3>
@@ -51,7 +53,6 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
         </button>
       </div>
 
-      {/* Booking details from metadata */}
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
         {meta.partnerName && (
           <span className="flex items-center gap-1.5 text-xs text-(--color-text-muted)">
@@ -86,7 +87,6 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
         )}
       </div>
 
-      {/* Price */}
       <div className="mt-3 pt-3 border-t border-(--color-border) flex items-center justify-between">
         <span className="text-xs text-(--color-text-muted)">Qtd: {item.quantity}</span>
         <span className="font-bold text-(--color-primary-700) text-base">
@@ -104,11 +104,59 @@ const MP_SANDBOX = import.meta.env.VITE_MP_SANDBOX !== 'false'
 export default function CartPage() {
   const { items, removeItem, clearCart, total, itemCount } = useCart()
   const navigate    = useNavigate()
-  const [paying, setPaying] = useState(false)
-  const [payError, setPayError] = useState('')
+  const [paying,         setPaying]         = useState(false)
+  const [payError,       setPayError]       = useState('')
+  const [creditBalance,  setCreditBalance]  = useState(0)
+  const [useCredit,      setUseCredit]      = useState(false)
+  const [creditLoading,  setCreditLoading]  = useState(true)
+  const [creditExpanded, setCreditExpanded] = useState(false)
+
+  useEffect(() => {
+    creditService.getBalance()
+      .then(r => setCreditBalance(r.balance))
+      .catch(() => {})
+      .finally(() => setCreditLoading(false))
+  }, [])
+
+  const appliedCredit    = useCredit ? Math.min(creditBalance, total) : 0
+  const remainingTotal   = Math.max(0, total - appliedCredit)
+  const paidFullByCredit = remainingTotal === 0 && appliedCredit > 0
+
+  async function handleCheckoutWithCredit() {
+    setPaying(true)
+    setPayError('')
+    try {
+      let created = 0
+      for (const item of items) {
+        const meta = item.metadata as EasypetCartMeta | undefined
+        if (!meta?.petId || !meta?.partnerId) continue
+        await bookingService.create({
+          petId:         meta.petId,
+          partnerId:     meta.partnerId,
+          serviceId:     item.productId,
+          type:          meta.bookingType,
+          price:         item.price,
+          staffId:       meta.staffId,
+          paymentMethod: 'CARD',
+          ...(meta.checkIn
+            ? { checkIn: meta.checkIn, checkOut: meta.checkOut }
+            : { bookingDate: `${meta.scheduledDate}T${meta.scheduledTime}:00` }
+          ),
+        })
+        created++
+      }
+      clearCart()
+      navigate(`/app/pagamento/sucesso?source=credit&count=${created}`)
+    } catch (err: any) {
+      console.error('Checkout credit error:', err?.response?.data ?? err)
+      setPayError('Não foi possível confirmar o agendamento. Tente novamente.')
+      setPaying(false)
+    }
+  }
 
   async function handleCheckout() {
     if (items.length === 0) return
+    if (paidFullByCredit) { handleCheckoutWithCredit(); return }
     setPaying(true)
     setPayError('')
     try {
@@ -153,7 +201,6 @@ export default function CartPage() {
       </div>
 
       {items.length === 0 ? (
-        /* Empty state */
         <div className="flex flex-col items-center justify-center gap-5 py-24 text-center
                         border-2 border-dashed border-(--color-border) rounded-2xl">
           <div className="w-16 h-16 rounded-full bg-(--color-surface) border border-(--color-border)
@@ -185,7 +232,60 @@ export default function CartPage() {
             />
           ))}
 
-          {/* Summary */}
+          {/* Créditos Easypet */}
+          {!creditLoading && creditBalance > 0 && (
+            <div className="bg-(--color-surface) border border-green-200 rounded-2xl shadow-sm overflow-hidden">
+              <button
+                onClick={() => setCreditExpanded(v => !v)}
+                className="w-full flex items-center gap-3 p-4 text-left hover:bg-green-50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                  <Wallet size={16} className="text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-green-700">
+                    Créditos Easypet: {formatBRL(creditBalance)}
+                  </p>
+                  <p className="text-xs text-green-600 mt-0.5">
+                    {useCredit
+                      ? `Desconto de ${formatBRL(appliedCredit)} aplicado`
+                      : 'Toque para usar no pagamento'}
+                  </p>
+                </div>
+                {useCredit && <CheckCircle2 size={18} className="text-green-600 shrink-0" />}
+                {creditExpanded
+                  ? <ChevronUp size={16} className="text-green-500 shrink-0" />
+                  : <ChevronDown size={16} className="text-green-500 shrink-0" />
+                }
+              </button>
+
+              {creditExpanded && (
+                <div className="px-4 pb-4 border-t border-green-100 pt-3">
+                  <p className="text-xs text-(--color-text-muted) mb-3">
+                    {creditBalance >= total
+                      ? 'Seu saldo cobre o valor total. O pedido será confirmado sem passar pelo Mercado Pago.'
+                      : `Seu saldo cobre ${formatBRL(creditBalance)}. O restante de ${formatBRL(total - creditBalance)} será pago via Mercado Pago.`
+                    }
+                  </p>
+                  <button
+                    onClick={() => setUseCredit(v => !v)}
+                    className={`w-full py-2.5 rounded-xl text-sm font-semibold border transition-colors
+                      ${useCredit
+                        ? 'bg-green-600 border-green-600 text-white hover:bg-green-700'
+                        : 'border-green-300 text-green-700 hover:bg-green-50'
+                      }`}
+                  >
+                    {useCredit
+                      ? `Remover desconto de ${formatBRL(appliedCredit)}`
+                      : `Usar ${formatBRL(Math.min(creditBalance, total))} de crédito`
+                    }
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Resumo */}
           <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl p-5 shadow-sm">
             <h4 className="text-sm font-semibold text-(--color-text-heading) mb-3">Resumo do pedido</h4>
             <div className="space-y-2 text-sm">
@@ -195,11 +295,22 @@ export default function CartPage() {
                   <span className="shrink-0">{formatBRL(item.price * item.quantity)}</span>
                 </div>
               ))}
+              {appliedCredit > 0 && (
+                <div className="flex justify-between text-green-600 font-medium">
+                  <span>Crédito Easypet</span>
+                  <span>- {formatBRL(appliedCredit)}</span>
+                </div>
+              )}
               <div className="border-t border-(--color-border) pt-2 flex justify-between font-bold
                               text-(--color-text-heading) text-base">
-                <span>Total</span>
-                <span className="text-(--color-primary-700)">{formatBRL(total)}</span>
+                <span>Total a pagar</span>
+                <span className="text-(--color-primary-700)">{formatBRL(remainingTotal)}</span>
               </div>
+              {paidFullByCredit && (
+                <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                  <CheckCircle2 size={12} /> Pago integralmente com créditos Easypet
+                </p>
+              )}
             </div>
           </div>
 
@@ -226,7 +337,12 @@ export default function CartPage() {
                          rounded-xl text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {paying && <Loader2 size={15} className="animate-spin" />}
-              {paying ? 'Redirecionando...' : 'Finalizar pedido'}
+              {paying
+                ? (paidFullByCredit ? 'Confirmando...' : 'Redirecionando...')
+                : paidFullByCredit
+                  ? 'Confirmar com créditos'
+                  : 'Finalizar pedido'
+              }
             </button>
           </div>
         </div>
