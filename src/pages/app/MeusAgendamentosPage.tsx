@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   CalendarDays, ChevronLeft, ChevronRight, Loader2, MapPin,
   Clock, RefreshCw, X, PawPrint, CreditCard, FileText, Tag,
+  Ban, Wallet, AlertCircle,
 } from 'lucide-react'
 import { bookingService, type BookingResponse, BOOKING_STATUS_LABEL, BOOKING_TYPE_LABEL } from '../../services/booking.service'
 import { partnerService, type PartnerResponse } from '../../services/partner.service'
 import { petService, type PetResponse } from '../../services/pet.service'
+import { creditService } from '../../services/payment.service'
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function formatBRL(v: number) {
@@ -28,6 +30,7 @@ const PAYMENT_LABEL: Record<string, string> = {
   CARD:           'Cartão',
   PIX:            'PIX',
   PACKAGE_CREDIT: 'Crédito de Pacote',
+  PLATFORM_CREDIT: 'Crédito Easypet',
 }
 
 /* ── Status styles ───────────────────────────────────────────────────────── */
@@ -46,19 +49,54 @@ const STATUS_DOT: Record<string, string> = {
   CANCELLED:   'bg-red-400',
 }
 
+/* ── Helpers de cancelamento ─────────────────────────────────────────────── */
+function canCancel(booking: BookingResponse): boolean {
+  if (booking.status !== 'PENDING' && booking.status !== 'CONFIRMED') return false
+  const ref = booking.checkIn ?? booking.bookingDate
+  if (!ref) return false
+  return new Date(ref) > new Date(Date.now() + 2 * 60 * 60 * 1000)
+}
+
+function creditMessageForCancel(booking: BookingResponse): string {
+  if (booking.paymentMethod === 'PACKAGE_CREDIT') {
+    return '1 crédito será devolvido ao seu pacote.'
+  }
+  return `${formatBRL(booking.price ?? 0)} serão adicionados como crédito Easypet para uso futuro.`
+}
+
 /* ── Modal de detalhes ───────────────────────────────────────────────────── */
 function BookingDetailModal({
-  booking, partner, pet, onClose,
+  booking, partner, pet, onClose, onCancelled,
 }: {
-  booking: BookingResponse
-  partner?: PartnerResponse
-  pet?: PetResponse
-  onClose: () => void
+  booking:     BookingResponse
+  partner?:    PartnerResponse
+  pet?:        PetResponse
+  onClose:     () => void
+  onCancelled: (id: string) => void
 }) {
-  const navigate     = useNavigate()
-  const isBoarding   = !!booking.checkIn
-  const isFitting    = booking.isFittingRequest
-  const serviceName  = partner?.services?.find(s => s.id === booking.serviceId)?.name
+  const navigate       = useNavigate()
+  const isBoarding     = !!booking.checkIn
+  const isFitting      = booking.isFittingRequest
+  const serviceName    = partner?.services?.find(s => s.id === booking.serviceId)?.name
+  const cancellable    = canCancel(booking)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+
+  async function handleCancel() {
+    if (!confirm('Confirmar cancelamento?\n\n' + creditMessageForCancel(booking))) return
+    setCancelling(true)
+    setCancelError('')
+    try {
+      await bookingService.updateStatus(booking.id, 'CANCELLED')
+      onCancelled(booking.id)
+      onClose()
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Não foi possível cancelar. Tente novamente.'
+      setCancelError(msg)
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   return (
     <div
@@ -174,7 +212,22 @@ function BookingDetailModal({
             </div>
           )}
 
-          {/* Datas de criação */}
+          {/* Aviso de cancelamento fora do prazo */}
+          {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && !cancellable && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <span>Cancelamentos devem ser feitos com pelo menos 2 horas de antecedência.</span>
+            </div>
+          )}
+
+          {/* Erro de cancelamento */}
+          {cancelError && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <span>{cancelError}</span>
+            </div>
+          )}
+
           <hr className="border-(--color-border)" />
           <p className="text-xs text-(--color-text-muted)">
             Criado em {formatDateTime(booking.createdAt)}
@@ -182,7 +235,22 @@ function BookingDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 pb-5">
+        <div className="px-5 pb-5 flex flex-col gap-2">
+          {cancellable && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200
+                         text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {cancelling
+                ? <Loader2 size={14} className="animate-spin" />
+                : <Ban size={14} />
+              }
+              {cancelling ? 'Cancelando...' : 'Cancelar agendamento'}
+            </button>
+          )}
           <button
             onClick={() => { onClose(); navigate(`/app/parceiros/${booking.partnerId}`) }}
             className="w-full py-2.5 rounded-xl border border-(--color-border) text-sm font-medium
@@ -267,16 +335,17 @@ const FILTER_OPTIONS: { value: FilterStatus; label: string }[] = [
 const PAGE_SIZE = 10
 
 export default function MeusAgendamentosPage() {
-  const [bookings,   setBookings]   = useState<BookingResponse[]>([])
-  const [partners,   setPartners]   = useState<Record<string, PartnerResponse>>({})
-  const [pets,       setPets]       = useState<Record<string, PetResponse>>({})
-  const [total,      setTotal]      = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [page,       setPage]       = useState(0)
-  const [loading,    setLoading]    = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [filter,     setFilter]     = useState<FilterStatus>('ALL')
-  const [selected,   setSelected]   = useState<BookingResponse | null>(null)
+  const [bookings,      setBookings]      = useState<BookingResponse[]>([])
+  const [partners,      setPartners]      = useState<Record<string, PartnerResponse>>({})
+  const [pets,          setPets]          = useState<Record<string, PetResponse>>({})
+  const [total,         setTotal]         = useState(0)
+  const [totalPages,    setTotalPages]    = useState(0)
+  const [page,          setPage]          = useState(0)
+  const [loading,       setLoading]       = useState(true)
+  const [refreshing,    setRefreshing]    = useState(false)
+  const [filter,        setFilter]        = useState<FilterStatus>('ALL')
+  const [selected,      setSelected]      = useState<BookingResponse | null>(null)
+  const [creditBalance, setCreditBalance] = useState<number | null>(null)
 
   async function load(p: number, showRefresh = false) {
     if (showRefresh) setRefreshing(true)
@@ -288,7 +357,6 @@ export default function MeusAgendamentosPage() {
       setTotalPages(res.totalPages)
       setPage(p)
 
-      // Batch-fetch parceiros e pets únicos em paralelo
       const uniquePartners = [...new Set(res.content.map(b => b.partnerId))]
       const uniquePets     = [...new Set(res.content.map(b => b.petId))]
 
@@ -317,7 +385,24 @@ export default function MeusAgendamentosPage() {
     }
   }
 
-  useEffect(() => { load(0) }, [])
+  async function loadBalance() {
+    try {
+      const { balance } = await creditService.getBalance()
+      setCreditBalance(balance)
+    } catch {
+      /* silencioso — usuário pode não ter saldo ainda */
+    }
+  }
+
+  useEffect(() => {
+    load(0)
+    loadBalance()
+  }, [])
+
+  function handleCancelled(id: string) {
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'CANCELLED' as const } : b))
+    loadBalance()
+  }
 
   const filtered = filter === 'ALL'
     ? bookings
@@ -346,6 +431,23 @@ export default function MeusAgendamentosPage() {
           Atualizar
         </button>
       </div>
+
+      {/* Banner de saldo de créditos */}
+      {creditBalance !== null && creditBalance > 0 && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-green-50 border border-green-200">
+          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+            <Wallet size={16} className="text-green-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-green-700">
+              Você tem {formatBRL(creditBalance)} em créditos Easypet
+            </p>
+            <p className="text-xs text-green-600 mt-0.5">
+              Use no próximo agendamento e pague menos.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex gap-2 flex-wrap">
@@ -430,6 +532,7 @@ export default function MeusAgendamentosPage() {
           partner={partners[selected.partnerId]}
           pet={pets[selected.petId]}
           onClose={() => setSelected(null)}
+          onCancelled={handleCancelled}
         />
       )}
     </div>
