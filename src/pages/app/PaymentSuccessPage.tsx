@@ -3,7 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { CheckCircle, Loader2, CalendarDays, ArrowRight } from 'lucide-react'
 import { useCart } from '../../contexts/CartContext'
 import { bookingService } from '../../services/booking.service'
-import type { EasypetCartMeta } from '../../services/payment.service'
+import { packageService } from '../../services/package.service'
+import type { EasypetCartMeta, EasypetPackageMeta } from '../../services/payment.service'
 
 export default function PaymentSuccessPage() {
   const [searchParams]            = useSearchParams()
@@ -27,6 +28,16 @@ export default function PaymentSuccessPage() {
 
       let created = 0
       for (const item of items) {
+        const pkgMeta = item.metadata as EasypetPackageMeta | undefined
+        if (pkgMeta?.isPackage) {
+          try {
+            await packageService.purchase(item.productId, 'CARD')
+            created++
+          } catch (err) {
+            console.error('Erro ao comprar pacote:', err)
+          }
+          continue
+        }
         const meta = item.metadata as EasypetCartMeta | undefined
         if (!meta?.petId || !meta?.partnerId) continue
         try {
@@ -77,7 +88,7 @@ export default function PaymentSuccessPage() {
             </h1>
             {bookingCount > 0 && (
               <p className="text-sm text-(--color-text-muted) mt-2">
-                {bookingCount} {bookingCount === 1 ? 'agendamento criado' : 'agendamentos criados'} com sucesso.
+                {bookingCount} {bookingCount === 1 ? 'item confirmado' : 'itens confirmados'} com sucesso.
               </p>
             )}
             {paymentId && (

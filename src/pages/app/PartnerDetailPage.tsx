@@ -7,12 +7,12 @@ import {
   ShoppingCart,
 } from 'lucide-react'
 import { partnerService, type PartnerResponse, type ReviewResponse, type ReviewRequest, type ServiceOffer } from '../../services/partner.service'
-import { packageService, type CustomerPackageResponse } from '../../services/package.service'
+import { packageService, type CustomerPackageResponse, type PackageTemplateResponse } from '../../services/package.service'
 import { bookingService, type AvailabilitySlot, type StaffSlot } from '../../services/booking.service'
 import { petService, type PetResponse, SPECIES_LABEL } from '../../services/pet.service'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCart } from '../../contexts/CartContext'
-import type { EasypetCartMeta } from '../../services/payment.service'
+import type { EasypetCartMeta, EasypetPackageMeta } from '../../services/payment.service'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -812,35 +812,35 @@ function BookingModal({
 // ── PurchaseModal ─────────────────────────────────────────────────────────────
 
 function PurchaseModal({
-  pkg, onClose, onSuccess,
+  pkg, partnerId, partnerName, onClose,
 }: {
-  pkg:       PackageTemplateResponse
-  onClose:   () => void
-  onSuccess: () => void
+  pkg:         PackageTemplateResponse
+  partnerId:   string
+  partnerName: string
+  onClose:     () => void
 }) {
-  const [method,     setMethod]     = useState<PaymentMethod>('PIX')
-  const [submitting, setSubmitting] = useState(false)
-  const [error,      setError]      = useState('')
-  const [success,    setSuccess]    = useState(false)
+  const navigate    = useNavigate()
+  const { addItem } = useCart()
+  const [added, setAdded] = useState(false)
 
-  async function handlePurchase() {
-    setSubmitting(true)
-    setError('')
-    try {
-      await packageService.purchase(pkg.id, method)
-      setSuccess(true)
-      setTimeout(onSuccess, 1800)
-    } catch {
-      setError('Não foi possível concluir a compra. Tente novamente.')
-    } finally {
-      setSubmitting(false)
+  function handleAddToCart() {
+    const meta: EasypetPackageMeta = {
+      isPackage:    true,
+      partnerId,
+      partnerName,
+      sessions:     pkg.quantity,
+      validityDays: pkg.validityDays,
     }
+    addItem({
+      productId:   pkg.id,
+      label:       pkg.name,
+      description: pkg.description ?? undefined,
+      price:       pkg.price,
+      quantity:    1,
+      metadata:    meta as unknown as Record<string, unknown>,
+    })
+    setAdded(true)
   }
-
-  const METHODS: { value: PaymentMethod; label: string }[] = [
-    { value: 'PIX',  label: 'PIX'               },
-    { value: 'CARD', label: 'Cartão de Crédito' },
-  ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -848,18 +848,38 @@ function PurchaseModal({
       <div className="w-full max-w-sm bg-(--color-surface) rounded-2xl shadow-2xl overflow-hidden">
 
         <div className="flex items-center justify-between p-5 border-b border-(--color-border)">
-          <h2 className="text-base font-semibold text-(--color-text-heading)">Comprar Pacote</h2>
+          <h2 className="text-base font-semibold text-(--color-text-heading)">Comprar pacote</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--color-bg) text-(--color-text-muted)">
             <X size={18} />
           </button>
         </div>
 
-        {success ? (
-          <div className="flex flex-col items-center gap-3 p-10 text-center">
-            <CheckCircle size={44} className="text-green-500" />
-            <p className="font-semibold text-(--color-text-heading)">Compra realizada!</p>
-            <p className="text-sm text-(--color-text-muted)">Seu pacote foi adicionado ao seu perfil.</p>
-          </div>
+        {added ? (
+          <>
+            <div className="flex flex-col items-center gap-4 py-10 px-5 text-center">
+              <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
+                <ShoppingCart size={32} className="text-green-500" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-(--color-text-heading)">Adicionado ao carrinho!</p>
+                <p className="text-sm text-(--color-text-muted) mt-1">
+                  {pkg.name} foi adicionado ao seu carrinho.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 p-5 border-t border-(--color-border)">
+              <button onClick={onClose}
+                      className="flex-1 py-2.5 text-sm rounded-xl border border-(--color-border)
+                                 text-(--color-text-body) hover:bg-(--color-bg) transition-colors">
+                Continuar comprando
+              </button>
+              <button onClick={() => navigate('/app/carrinho')}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
+                                 bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600) transition-colors">
+                <ShoppingCart size={15} /> Ver carrinho
+              </button>
+            </div>
+          </>
         ) : (
           <div className="p-5 space-y-4">
 
@@ -875,23 +895,9 @@ function PurchaseModal({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-(--color-text-muted) uppercase tracking-wide">Forma de pagamento</p>
-              <div className="grid grid-cols-2 gap-2">
-                {METHODS.map(m => (
-                  <button key={m.value} onClick={() => setMethod(m.value)}
-                          className={`py-3 text-sm rounded-xl border-2 transition-colors font-medium
-                            ${method === m.value
-                              ? 'border-(--color-secondary-500) bg-(--color-secondary-500)/10 text-(--color-secondary-500)'
-                              : 'border-(--color-border) text-(--color-text-body) hover:border-(--color-secondary-400)'
-                            }`}>
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            <p className="text-xs text-(--color-text-muted) text-center">
+              O pagamento será realizado no carrinho ao finalizar o pedido.
+            </p>
 
             <div className="flex gap-3 pt-1">
               <button onClick={onClose}
@@ -899,12 +905,11 @@ function PurchaseModal({
                                  text-(--color-text-body) hover:bg-(--color-bg) transition-colors">
                 Cancelar
               </button>
-              <button onClick={handlePurchase} disabled={submitting}
+              <button onClick={handleAddToCart}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
-                                 bg-(--color-primary-700) text-white hover:bg-(--color-primary-800)
-                                 disabled:opacity-50 transition-colors">
-                {submitting ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
-                Comprar
+                                 bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600)
+                                 transition-colors">
+                <ShoppingCart size={15} /> Adicionar ao carrinho
               </button>
             </div>
           </div>
@@ -1173,11 +1178,12 @@ export default function PartnerDetailPage() {
           onClose={() => setSelectedService(null)}
         />
       )}
-      {selectedPackage && (
+      {selectedPackage && id && (
         <PurchaseModal
           pkg={selectedPackage}
+          partnerId={id}
+          partnerName={partner.name}
           onClose={() => setSelectedPackage(null)}
-          onSuccess={() => setSelectedPackage(null)}
         />
       )}
     </div>

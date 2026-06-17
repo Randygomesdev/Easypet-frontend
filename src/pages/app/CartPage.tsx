@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, Trash2, ArrowLeft, CalendarDays,
   Clock, User, PawPrint, Store, ShoppingBag, Loader2,
-  Wallet, ChevronDown, ChevronUp, CheckCircle2,
+  Wallet, ChevronDown, ChevronUp, CheckCircle2, Package,
 } from 'lucide-react'
 import { useCart, type CartItem } from '../../contexts/CartContext'
 import { paymentService, creditService } from '../../services/payment.service'
 import { bookingService } from '../../services/booking.service'
-import type { EasypetCartMeta } from '../../services/payment.service'
+import { packageService } from '../../services/package.service'
+import type { EasypetCartMeta, EasypetPackageMeta } from '../../services/payment.service'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,12 @@ function CartItemCard({ item, onRemove }: { item: CartItem; onRemove: () => void
           <span className="flex items-center gap-1.5 text-xs text-(--color-text-muted)">
             <Store size={12} className="shrink-0" />
             {meta.partnerName}
+          </span>
+        )}
+        {meta.isPackage && (
+          <span className="flex items-center gap-1.5 text-xs text-(--color-text-muted)">
+            <Package size={12} className="shrink-0" />
+            Pacote · {meta.sessions} sessões · validade {meta.validityDays} dias
           </span>
         )}
         {meta.scheduledDate && (
@@ -128,6 +135,12 @@ export default function CartPage() {
     try {
       let created = 0
       for (const item of items) {
+        const pkgMeta = item.metadata as EasypetPackageMeta | undefined
+        if (pkgMeta?.isPackage) {
+          await packageService.purchase(item.productId, 'CARD')
+          created++
+          continue
+        }
         const meta = item.metadata as EasypetCartMeta | undefined
         if (!meta?.petId || !meta?.partnerId) continue
         await bookingService.create({
@@ -332,8 +345,8 @@ export default function CartPage() {
             <button
               onClick={handleCheckout}
               disabled={paying}
-              className="flex-grow flex items-center justify-center gap-2 bg-(--color-primary-700)
-                         hover:bg-(--color-primary-800) text-white font-semibold px-6 py-2.5
+              className="flex-grow flex items-center justify-center gap-2 bg-(--color-secondary-500)
+                         hover:bg-(--color-secondary-600) text-white font-semibold px-6 py-2.5
                          rounded-xl text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {paying && <Loader2 size={15} className="animate-spin" />}
