@@ -7,7 +7,7 @@ import {
   ShoppingCart,
 } from 'lucide-react'
 import { partnerService, type PartnerResponse, type ReviewResponse, type ReviewRequest, type ServiceOffer } from '../../services/partner.service'
-import { packageService, type PackageTemplateResponse, type PaymentMethod, type CustomerPackageResponse } from '../../services/package.service'
+import { packageService, type CustomerPackageResponse } from '../../services/package.service'
 import { bookingService, type AvailabilitySlot, type StaffSlot } from '../../services/booking.service'
 import { petService, type PetResponse, SPECIES_LABEL } from '../../services/pet.service'
 import { useAuth } from '../../contexts/AuthContext'
@@ -212,7 +212,7 @@ const inputCls = `w-full px-3 py-2.5 text-sm rounded-xl border border-(--color-b
 
 // ── BookingModal ──────────────────────────────────────────────────────────────
 
-type BookingView = 'config' | 'slots' | 'confirm' | 'added'
+type BookingView = 'config' | 'slots' | 'confirm' | 'added' | 'booked'
 
 function BookingModal({
   service, partnerId, partnerName, onClose,
@@ -241,6 +241,11 @@ function BookingModal({
   const [checkInTime,  setCheckInTime]  = useState('08:00')
   const [checkOutDate, setCheckOutDate] = useState('')
   const [checkOutTime, setCheckOutTime] = useState('18:00')
+  // Package credits
+  const [activePackages,  setActivePackages]  = useState<CustomerPackageResponse[]>([])
+  const [usePackage,      setUsePackage]       = useState(false)
+  const [bookingPkg,      setBookingPkg]       = useState<CustomerPackageResponse | null>(null)
+  const [bookingLoading,  setBookingLoading]   = useState(false)
   // Submit
   const [error, setError] = useState('')
 
@@ -252,6 +257,17 @@ function BookingModal({
         const list: PetResponse[] = Array.isArray(p) ? p : (p as any).content ?? []
         setPets(list)
         if (list.length === 1) setPetId(list[0].id)
+      })
+      .catch(() => {})
+    // Carregar pacotes ativos do usuário para este parceiro/serviço
+    packageService.myBalances()
+      .then(pkgs => {
+        const compatible = pkgs.filter(
+          pkg => pkg.packageTemplate.partnerId === partnerId
+              && pkg.packageTemplate.serviceId === service.id
+        )
+        setActivePackages(compatible)
+        if (compatible.length > 0) setBookingPkg(compatible[0])
       })
       .catch(() => {})
   }, [])
@@ -329,6 +345,34 @@ function BookingModal({
     })
 
     setView('added')
+  }
+
+  async function handleBookWithPackage() {
+    if (!bookingPkg || !petId) return
+    setBookingLoading(true)
+    setError('')
+    try {
+      // Consumir 1 crédito do pacote
+      await bookingService.create({
+        petId,
+        partnerId,
+        serviceId:     service.id,
+        type:          'OTHER',
+        price:         isDaily ? dailyNights * service.price : service.price,
+        staffId:       staffId ?? undefined,
+        paymentMethod: 'PACKAGE_CREDIT',
+        customerPackageId: bookingPkg.id,
+        ...(isDaily
+          ? { checkIn: `${checkInDate}T${checkInTime}:00`, checkOut: `${checkOutDate}T${checkOutTime}:00` }
+          : { bookingDate: `${date}T${selectedSlot?.time}:00` }
+        ),
+      })
+      setView('booked')
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Não foi possível confirmar o agendamento.')
+    } finally {
+      setBookingLoading(false)
+    }
   }
 
   // Step indicator
@@ -615,9 +659,45 @@ function BookingModal({
                 </div>
               </div>
 
-              <p className="text-xs text-(--color-text-muted) text-center">
-                O pagamento será realizado no carrinho antes de confirmar o agendamento.
-              </p>
+              {/* Opção de pacote */}
+              {activePackages.length > 0 && bookingPkg && (
+                <div className={`border rounded-xl p-3.5 transition-colors cursor-pointer
+                  ${usePackage
+                    ? 'border-green-400 bg-green-50'
+                    : 'border-(--color-border) hover:border-green-300'
+                  }`}
+                  onClick={() => setUsePackage(v => !v)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <Package size={16} className={usePackage ? 'text-green-600' : 'text-(--color-text-muted)'} />
+                      <div>
+                        <p className={`text-sm font-semibold ${usePackage ? 'text-green-700' : 'text-(--color-text-heading)'}`}>
+                          {bookingPkg.packageTemplate.name}
+                        </p>
+                        <p className="text-xs text-(--color-text-muted)">
+                          {bookingPkg.remainingCredits} crédito{bookingPkg.remainingCredits !== 1 ? 's' : ''} disponíve{bookingPkg.remainingCredits !== 1 ? 'is' : 'l'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors
+                      ${usePackage ? 'border-green-500 bg-green-500' : 'border-(--color-border)'}`}>
+                      {usePackage && <CheckCircle size={12} className="text-white" />}
+                    </div>
+                  </div>
+                  {usePackage && (
+                    <p className="text-xs text-green-600 mt-2 ml-6.5">
+                      1 crédito será debitado. O agendamento será confirmado imediatamente.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!usePackage && (
+                <p className="text-xs text-(--color-text-muted) text-center">
+                  O pagamento será realizado no carrinho antes de confirmar o agendamento.
+                </p>
+              )}
             </>
           )}
 
@@ -636,23 +716,47 @@ function BookingModal({
             </div>
           )}
 
+          {/* ── VIEW: booked ── */}
+          {view === 'booked' && (
+            <div className="flex flex-col items-center gap-4 py-10 text-center">
+              <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
+                <CheckCircle size={32} className="text-green-500" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-(--color-text-heading)">Agendamento confirmado!</p>
+                <p className="text-sm text-(--color-text-muted) mt-1">
+                  1 crédito do pacote foi utilizado.
+                </p>
+              </div>
+            </div>
+          )}
+
           {error && view !== 'added' && <p className="text-sm text-red-500">{error}</p>}
         </div>
 
         {/* Footer */}
         <div className="flex gap-3 p-5 border-t border-(--color-border) shrink-0">
-          {view === 'added' ? (
+          {(view === 'added' || view === 'booked') ? (
             <>
               <button onClick={onClose}
                       className="flex-1 py-2.5 text-sm rounded-xl border border-(--color-border)
                                  text-(--color-text-body) hover:bg-(--color-bg) transition-colors">
-                Continuar comprando
+                {view === 'booked' ? 'Fechar' : 'Continuar comprando'}
               </button>
-              <button onClick={() => navigate('/app/carrinho')}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
-                                 bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600) transition-colors">
-                <ShoppingCart size={15} /> Ver carrinho
-              </button>
+              {view === 'added' && (
+                <button onClick={() => navigate('/app/carrinho')}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
+                                   bg-(--color-secondary-500) text-white hover:bg-(--color-secondary-600) transition-colors">
+                  <ShoppingCart size={15} /> Ver carrinho
+                </button>
+              )}
+              {view === 'booked' && (
+                <button onClick={() => navigate('/app/agendamentos')}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
+                                   bg-(--color-primary-700) text-white hover:bg-(--color-primary-800) transition-colors">
+                  <CalendarDays size={15} /> Ver agendamentos
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -677,6 +781,17 @@ function BookingModal({
                                    disabled:opacity-50 transition-colors">
                   {view === 'config' && !isDaily ? 'Ver horários' : 'Próximo'}
                   <ChevronRight size={15} />
+                </button>
+              ) : usePackage ? (
+                <button onClick={handleBookWithPackage} disabled={bookingLoading}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm rounded-xl
+                                   bg-green-600 text-white hover:bg-green-700
+                                   disabled:opacity-50 transition-colors">
+                  {bookingLoading
+                    ? <Loader2 size={15} className="animate-spin" />
+                    : <CheckCircle size={15} />
+                  }
+                  {bookingLoading ? 'Confirmando...' : 'Confirmar com pacote'}
                 </button>
               ) : (
                 <button onClick={handleAddToCart}

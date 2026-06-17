@@ -126,6 +126,7 @@ export default function AgendamentosPage() {
   const [petMap,        setPetMap]        = useState<Record<string, PetResponse>>({})
   const [loading,       setLoading]       = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [actionError,   setActionError]   = useState<string | null>(null)
   const [page,          setPage]          = useState(0)
   const [totalPages,    setTotalPages]    = useState(0)
   const [totalItems,    setTotalItems]    = useState(0)
@@ -220,8 +221,12 @@ export default function AgendamentosPage() {
   /* ── Ações ── */
   async function handleStatusChange(id: string, status: BookingStatus) {
     setActionLoading(id)
+    setActionError(null)
     try { await bookingService.updateStatus(id, status); await load() }
-    catch { /* silently fail */ }
+    catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Não foi possível realizar esta ação.'
+      setActionError(msg)
+    }
     finally { setActionLoading(null) }
   }
 
@@ -261,10 +266,16 @@ export default function AgendamentosPage() {
       </div>
     )
     if (b.status === 'CONFIRMED') return (
-      <button onClick={() => navigate(`/partner/atendimento?bookingId=${b.id}`)}
-        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-(--color-secondary-500) text-white hover:opacity-90 transition-opacity">
-        Iniciar Atendimento
-      </button>
+      <div className="flex gap-1.5">
+        <button onClick={() => navigate(`/partner/atendimento?bookingId=${b.id}`)}
+          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-(--color-secondary-500) text-white hover:opacity-90 transition-opacity">
+          Iniciar Atendimento
+        </button>
+        <button onClick={() => handleStatusChange(b.id, 'CANCELLED')}
+          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-pink-100 text-pink-600 hover:bg-pink-200 transition-colors">
+          Cancelar
+        </button>
+      </div>
     )
     return null
   }
@@ -439,6 +450,14 @@ export default function AgendamentosPage() {
           </div>
         )}
       </div>
+
+      {/* Erro de ação */}
+      {actionError && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="shrink-0 hover:opacity-70">✕</button>
+        </div>
+      )}
 
       {/* ── Tabela ── */}
       <div className="bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm overflow-hidden">
